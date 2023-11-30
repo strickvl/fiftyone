@@ -121,17 +121,15 @@ class PlotManager(object):
 
         elements = []
 
-        connected_plots = [
+        if connected_plots := [
             name for name, p in self._plots.items() if p.is_connected
-        ]
-        if connected_plots:
+        ]:
             elements.append("Connected plots:")
             elements.extend(self._summarize_plots(connected_plots))
 
-        disconnected_plots = [
+        if disconnected_plots := [
             name for name, p in self._plots.items() if not p.is_connected
-        ]
-        if disconnected_plots:
+        ]:
             elements.append("Disconnected plots:")
             elements.extend(self._summarize_plots(disconnected_plots))
 
@@ -144,7 +142,7 @@ class PlotManager(object):
         elements = []
         for name in names:
             plot = self._plots[name]
-            elements.append(fmt % (name + ":", etau.get_class_name(plot)))
+            elements.append(fmt % (f"{name}:", etau.get_class_name(plot)))
 
         return elements
 
@@ -237,8 +235,7 @@ class PlotManager(object):
                 "for more information" % (ResponsivePlot, type(plot))
             )
 
-        same_plots = [(n, p) for n, p in self._plots.items() if p is plot]
-        if same_plots:
+        if same_plots := [(n, p) for n, p in self._plots.items() if p is plot]:
             current_name = same_plots[0][0]
             if name is not None and name != current_name:
                 logger.warning(
@@ -255,7 +252,7 @@ class PlotManager(object):
 
         if name in self._plots:
             if not overwrite:
-                raise ValueError("A plot with name '%s' already exists" % name)
+                raise ValueError(f"A plot with name '{name}' already exists")
 
             _plot = self.pop(name)
             if _plot.is_connected:
@@ -294,7 +291,7 @@ class PlotManager(object):
             the :class:`ResponsivePlot`
         """
         if name not in self._plots:
-            raise ValueError("No plot with name '%s'" % name)
+            raise ValueError(f"No plot with name '{name}'")
 
         plot = self._plots.pop(name)
         self._aggs.pop(name, None)
@@ -457,14 +454,9 @@ class PlotManager(object):
             elif plot.selection_mode == "select":
                 # Create a view that only contains the selected frames
                 plot_view = plot_view.select_frames(ids)
-            elif plot.selection_mode == "match":
+            elif plot.selection_mode in ["match", "frames"]:
                 # Create a view that only contains unfiltered samples with at
                 # least one selected frame
-                _ids = [ObjectId(_id) for _id in ids]
-                plot_view = plot_view.match(F("frames._id").contains(_ids))
-            elif plot.selection_mode == "frames":
-                # We shouldn't actually get here, since `plot_view` should have
-                # been a `FramesView`
                 _ids = [ObjectId(_id) for _id in ids]
                 plot_view = plot_view.match(F("frames._id").contains(_ids))
             else:
@@ -472,8 +464,6 @@ class PlotManager(object):
                     "Unsupported `selection_mode=%s`" % plot.selection_mode
                 )
 
-            # If the session has plots linked to samples, retrieve the current
-            # sample IDs
             if self.has_sample_links:
                 if isinstance(plot_view, fov.FramesView):
                     sample_ids = plot_view.values("sample_id")
@@ -490,27 +480,28 @@ class PlotManager(object):
                 labels = plot_view._get_selected_labels()
         elif plot.link_type == "labels":
             # Update `plot_view` to only contain the right content
-            if plot.selection_mode == "select":
+            if (
+                plot.selection_mode != "match"
+                and plot.selection_mode == "patches"
+                and isinstance(plot_view, fop.PatchesView)
+            ):
+                # Create a view that only contains the selected labels
+                plot_view = plot_view.select(ids)
+            elif (
+                plot.selection_mode != "match"
+                and plot.selection_mode == "patches"
+                or plot.selection_mode == "match"
+            ):
+                # We shouldn't actually get here, since `plot_view` should
+                # have been a `PatchesView`...
+                plot_view = plot_view.match_labels(
+                    ids=ids, fields=plot.label_fields
+                )
+            elif plot.selection_mode == "select":
                 # Create a view that only contains the selected labels
                 plot_view = plot_view.select_labels(
                     ids=ids, fields=plot.label_fields
                 )
-            elif plot.selection_mode == "match":
-                # Create a view that only contains unfiltered samples with at
-                # least one selected label
-                plot_view = plot_view.match_labels(
-                    ids=ids, fields=plot.label_fields
-                )
-            elif plot.selection_mode == "patches":
-                if isinstance(plot_view, fop.PatchesView):
-                    # Create a view that only contains the selected labels
-                    plot_view = plot_view.select(ids)
-                else:
-                    # We shouldn't actually get here, since `plot_view` should
-                    # have been a `PatchesView`...
-                    plot_view = plot_view.match_labels(
-                        ids=ids, fields=plot.label_fields
-                    )
             else:
                 raise ValueError(
                     "Unsupported `selection_mode=%s`" % plot.selection_mode
@@ -652,10 +643,7 @@ class PlotManager(object):
             elif plot.link_type in ("samples", "frames", "labels"):
                 interactive_plot_names.append(name)
             else:
-                raise ValueError(
-                    "Plot '%s' has unsupported link type '%s'"
-                    % (name, plot.link_type)
-                )
+                raise ValueError(f"Plot '{name}' has unsupported link type '{plot.link_type}'")
 
         view = self._session._collection.view()
 
@@ -714,8 +702,7 @@ class PlotManager(object):
             plot.select_ids(label_ids, view=view)
         else:
             raise ValueError(
-                "InteractivePlot '%s' has unsupported link type '%s'"
-                % (name, plot.link_type)
+                f"InteractivePlot '{name}' has unsupported link type '{plot.link_type}'"
             )
 
     def _get_current_label_ids_for_plot(self, plot):

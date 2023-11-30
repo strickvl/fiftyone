@@ -132,7 +132,7 @@ class FramesView(fov.DatasetView):
 
     @property
     def name(self):
-        return self.dataset_name + "-frames"
+        return f"{self.dataset_name}-frames"
 
     def _get_default_sample_fields(
         self, include_private=False, use_db_fields=False
@@ -155,11 +155,7 @@ class FramesView(fov.DatasetView):
     def set_values(self, field_name, *args, **kwargs):
         # The `set_values()` operation could change the contents of this view,
         # so we first record the sample IDs that need to be synced
-        if self._stages:
-            ids = self.values("id")
-        else:
-            ids = None
-
+        ids = self.values("id") if self._stages else None
         super().set_values(field_name, *args, **kwargs)
 
         field = field_name.split(".", 1)[0]
@@ -401,8 +397,7 @@ class FramesView(fov.DatasetView):
         schema = self.get_field_schema()
         src_schema = self._source_collection.get_frame_field_schema()
 
-        del_fields = set(src_schema.keys()) - set(schema.keys())
-        if del_fields:
+        if del_fields := set(src_schema.keys()) - set(schema.keys()):
             prefix = self._source_collection._FRAMES_PREFIX
             _del_fields = [prefix + f for f in del_fields]
             self._source_collection.exclude_fields(_del_fields).keep_fields()
@@ -741,9 +736,9 @@ def _init_frames(
         else:
             missing_fns = set()
 
-        for fn in missing_fns:
-            missing_filepaths.append((_sample_id, fn, images_patt % fn))
-
+        missing_filepaths.extend(
+            (_sample_id, fn, images_patt % fn) for fn in missing_fns
+        )
         # Create necessary frame documents
         for fn in doc_frame_numbers:
             if is_clips:
@@ -755,11 +750,7 @@ def _init_frames(
 
             _id = frame_ids_map.get(fn, None)
 
-            if sample_frames == "dynamic":
-                filepath = video_path
-            else:
-                filepath = None  # will be populated later
-
+            filepath = video_path if sample_frames == "dynamic" else None
             doc = {
                 "filepath": filepath,
                 "tags": tags,

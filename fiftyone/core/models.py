@@ -102,8 +102,7 @@ def apply_model(
 
     if not isinstance(model, Model):
         raise ValueError(
-            "Model must be a %s or %s; found %s"
-            % (Model, _BASE_FLASH_TYPE, type(model))
+            f"Model must be a {Model} or {_BASE_FLASH_TYPE}; found {type(model)}"
         )
 
     if model.media_type == "video" and samples.media_type != fom.VIDEO:
@@ -212,11 +211,10 @@ _BASE_FLASH_TYPE = "flash.core.model.Task"
 
 
 def _is_flash_model(model):
-    for cls in inspect.getmro(type(model)):
-        if etau.get_class_name(cls) == _BASE_FLASH_TYPE:
-            return True
-
-    return False
+    return any(
+        etau.get_class_name(cls) == _BASE_FLASH_TYPE
+        for cls in inspect.getmro(type(model))
+    )
 
 
 def _apply_image_model_single(
@@ -326,11 +324,7 @@ def _apply_image_model_to_frames_single(
 
     with fou.ProgressBar(total=total_frame_count) as pb:
         for idx, sample in enumerate(samples):
-            if is_clips:
-                frames = etaf.FrameRange(*sample.support)
-            else:
-                frames = None
-
+            frames = etaf.FrameRange(*sample.support) if is_clips else None
             try:
                 with etav.FFmpegVideoReader(
                     sample.filepath, frames=frames
@@ -365,23 +359,16 @@ def _apply_image_model_to_frames_batch(
 
     with fou.ProgressBar(total=total_frame_count) as pb:
         for idx, sample in enumerate(samples):
-            if is_clips:
-                frames = etaf.FrameRange(*sample.support)
-            else:
-                frames = None
-
+            frames = etaf.FrameRange(*sample.support) if is_clips else None
             try:
                 with etav.FFmpegVideoReader(
-                    sample.filepath, frames=frames
-                ) as video_reader:
+                                    sample.filepath, frames=frames
+                                ) as video_reader:
                     for fns, imgs in _iter_batches(video_reader, batch_size):
                         labels_batch = model.predict_all(imgs)
 
                         sample.add_labels(
-                            {
-                                fn: labels
-                                for fn, labels in zip(fns, labels_batch)
-                            },
+                            dict(zip(fns, labels_batch)),
                             label_field,
                             confidence_thresh=confidence_thresh,
                         )
@@ -406,11 +393,7 @@ def _apply_video_model(
 
     with fou.ProgressBar() as pb:
         for sample in pb(samples):
-            if is_clips:
-                frames = etaf.FrameRange(*sample.support)
-            else:
-                frames = None
-
+            frames = etaf.FrameRange(*sample.support) if is_clips else None
             try:
                 with etav.FFmpegVideoReader(
                     sample.filepath, frames=frames
@@ -488,10 +471,7 @@ def _make_data_loader(samples, model, batch_size, num_workers, skip_failures):
 
         def collate_fn(batch):
             error = handle_errors(batch)
-            if error is not None:
-                return error
-
-            return batch  # return list
+            return error if error is not None else batch
 
     elif use_numpy:
 
@@ -610,14 +590,12 @@ def compute_embeddings(
 
     if not isinstance(model, Model):
         raise ValueError(
-            "Model must be a %s or %s; found %s"
-            % (Model, _BASE_FLASH_TYPE, type(model))
+            f"Model must be a {Model} or {_BASE_FLASH_TYPE}; found {type(model)}"
         )
 
     if not model.has_embeddings:
         raise ValueError(
-            "Model must expose embeddings; found model.has_embeddings = %s"
-            % model.has_embeddings
+            f"Model must expose embeddings; found model.has_embeddings = {model.has_embeddings}"
         )
 
     if model.media_type == "video" and samples.media_type != fom.VIDEO:
@@ -722,10 +700,7 @@ def _compute_image_embeddings_single(
     if embeddings_field:
         return None
 
-    if errors:
-        return embeddings  # may contain None, must return as list
-
-    return np.stack(embeddings)
+    return embeddings if errors else np.stack(embeddings)
 
 
 def _compute_image_embeddings_batch(
@@ -768,10 +743,7 @@ def _compute_image_embeddings_batch(
     if embeddings_field:
         return None
 
-    if errors:
-        return embeddings  # may contain None, must return as list
-
-    return np.stack(embeddings)
+    return embeddings if errors else np.stack(embeddings)
 
 
 def _compute_image_embeddings_data_loader(
@@ -819,10 +791,7 @@ def _compute_image_embeddings_data_loader(
     if embeddings_field:
         return None
 
-    if errors:
-        return embeddings  # may contain None, must return as list
-
-    return np.stack(embeddings)
+    return embeddings if errors else np.stack(embeddings)
 
 
 def _compute_frame_embeddings_single(
@@ -838,11 +807,7 @@ def _compute_frame_embeddings_single(
         for idx, sample in enumerate(samples):
             embeddings = []
 
-            if is_clips:
-                frames = etaf.FrameRange(*sample.support)
-            else:
-                frames = None
-
+            frames = etaf.FrameRange(*sample.support) if is_clips else None
             try:
                 with etav.FFmpegVideoReader(
                     sample.filepath, frames=frames
@@ -867,20 +832,13 @@ def _compute_frame_embeddings_single(
                 logger.warning("Sample: %s\nError: %s\n", sample.id, e)
 
             if embeddings_field is None:
-                if embeddings:
-                    embeddings = np.stack(embeddings)
-                else:
-                    embeddings = None
-
+                embeddings = np.stack(embeddings) if embeddings else None
                 embeddings_dict[sample.id] = embeddings
 
             # Explicitly set in case actual # frames differed from expected #
             pb.set_iteration(frame_counts[idx])
 
-    if embeddings_field:
-        return None
-
-    return embeddings_dict
+    return None if embeddings_field else embeddings_dict
 
 
 def _compute_frame_embeddings_batch(
@@ -896,26 +854,17 @@ def _compute_frame_embeddings_batch(
         for idx, sample in enumerate(samples):
             embeddings = []
 
-            if is_clips:
-                frames = etaf.FrameRange(*sample.support)
-            else:
-                frames = None
-
+            frames = etaf.FrameRange(*sample.support) if is_clips else None
             try:
                 with etav.FFmpegVideoReader(
-                    sample.filepath, frames=frames
-                ) as video_reader:
+                                    sample.filepath, frames=frames
+                                ) as video_reader:
                     for fns, imgs in _iter_batches(video_reader, batch_size):
                         embeddings_batch = list(model.embed_all(imgs))
 
                         if embeddings_field is not None:
                             sample.add_labels(
-                                {
-                                    fn: embedding
-                                    for fn, embedding in zip(
-                                        fns, embeddings_batch
-                                    )
-                                },
+                                dict(zip(fns, embeddings_batch)),
                                 embeddings_field,
                             )
                         else:
@@ -930,20 +879,13 @@ def _compute_frame_embeddings_batch(
                 logger.warning("Sample: %s\nError: %s\n", sample.id, e)
 
             if embeddings_field is None:
-                if embeddings:
-                    embeddings = np.stack(embeddings)
-                else:
-                    embeddings = None
-
+                embeddings = np.stack(embeddings) if embeddings else None
                 embeddings_dict[sample.id] = embeddings
 
             # Explicitly set in case actual # frames differed from expected #
             pb.set_iteration(frame_counts[idx])
 
-    if embeddings_field:
-        return None
-
-    return embeddings_dict
+    return None if embeddings_field else embeddings_dict
 
 
 def _compute_video_embeddings(samples, model, embeddings_field, skip_failures):
@@ -955,11 +897,7 @@ def _compute_video_embeddings(samples, model, embeddings_field, skip_failures):
 
     with fou.ProgressBar() as pb:
         for sample in pb(samples):
-            if is_clips:
-                frames = etaf.FrameRange(*sample.support)
-            else:
-                frames = None
-
+            frames = etaf.FrameRange(*sample.support) if is_clips else None
             try:
                 with etav.FFmpegVideoReader(
                     sample.filepath, frames=frames
@@ -982,10 +920,7 @@ def _compute_video_embeddings(samples, model, embeddings_field, skip_failures):
     if embeddings_field:
         return None
 
-    if errors:
-        return embeddings  # may contain None, must return as list
-
-    return np.stack(embeddings)
+    return embeddings if errors else np.stack(embeddings)
 
 
 def compute_patch_embeddings(
@@ -1069,14 +1004,11 @@ def compute_patch_embeddings(
             missing or ``None`` values to indicate uncomputable embeddings
     """
     if not isinstance(model, Model):
-        raise ValueError(
-            "Model must be a %s instance; found %s" % (Model, type(model))
-        )
+        raise ValueError(f"Model must be a {Model} instance; found {type(model)}")
 
     if not model.has_embeddings:
         raise ValueError(
-            "Model must expose embeddings; found model.has_embeddings = %s"
-            % model.has_embeddings
+            f"Model must expose embeddings; found model.has_embeddings = {model.has_embeddings}"
         )
 
     if model.media_type != "image":
@@ -1088,8 +1020,7 @@ def compute_patch_embeddings(
     _handle_missing_supported = {"skip", "image", "error"}
     if handle_missing not in _handle_missing_supported:
         raise ValueError(
-            "Unsupported handle_missing = '%s'; supported values are %s"
-            % (handle_missing, _handle_missing_supported)
+            f"Unsupported handle_missing = '{handle_missing}'; supported values are {_handle_missing_supported}"
         )
 
     use_data_loader = (
@@ -1220,10 +1151,7 @@ def _embed_patches(
             else:
                 embeddings_dict[sample.id] = embeddings
 
-    if embeddings_field:
-        return None
-
-    return embeddings_dict
+    return None if embeddings_field else embeddings_dict
 
 
 def _embed_patches_single(model, img, detections, force_square, alpha):
@@ -1309,10 +1237,7 @@ def _embed_patches_data_loader(
             else:
                 embeddings_dict[sample.id] = embeddings
 
-    if embeddings_field:
-        return None
-
-    return embeddings_dict
+    return None if embeddings_field else embeddings_dict
 
 
 def _embed_frame_patches(
@@ -1334,11 +1259,7 @@ def _embed_frame_patches(
 
     with fou.ProgressBar(total=total_frame_count) as pb:
         for idx, sample in enumerate(samples):
-            if is_clips:
-                frames = etaf.FrameRange(*sample.support)
-            else:
-                frames = None
-
+            frames = etaf.FrameRange(*sample.support) if is_clips else None
             frame_embeddings_dict = {}
 
             try:
@@ -1390,10 +1311,7 @@ def _embed_frame_patches(
             # Explicitly set in case actual # frames differed from expected #
             pb.set_iteration(frame_counts[idx])
 
-    if embeddings_field:
-        return None
-
-    return embeddings_dict
+    return None if embeddings_field else embeddings_dict
 
 
 def _make_patch_data_loader(
@@ -1497,8 +1415,7 @@ def load_model(model_config_dict, model_path=None, **kwargs):
             config.config.config.model_path = model_path
         else:
             raise ValueError(
-                "Model config must implement the %s interface"
-                % etal.HasPublishedModel
+                f"Model config must implement the {etal.HasPublishedModel} interface"
             )
 
     # Build model
@@ -1784,9 +1701,7 @@ class ModelManager(etam.ModelManager):
             logger.info("Downloading model from '%s'...", url)
             etaw.download_file(url, path=model_path)
         else:
-            raise ValueError(
-                "Invalid ModelManagerConfig '%s'" % str(self.config)
-            )
+            raise ValueError(f"Invalid ModelManagerConfig '{str(self.config)}'")
 
     def delete_model(self):
         raise NotImplementedError("Deleting models via API is not supported")

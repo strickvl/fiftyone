@@ -74,23 +74,14 @@ def log_import_if_allowed(test=False):
     if multiprocessing.current_process().name != "MainProcess":
         return
 
-    if test:
-        uid, first_import = "test", False
-    else:
-        uid, first_import = get_user_id()
-
+    uid, first_import = ("test", False) if test else get_user_id()
     kind = "new" if first_import else "returning"
 
     def send_import_event():
         try:
             with ua.HTTPRequest() as http:
                 tracker = ua.Tracker(foc.UA_ID, http, client_id=uid)
-                tracker.send(
-                    "event",
-                    "import",
-                    kind,
-                    label="%s-%s" % (foc.VERSION, _get_context()),
-                )
+                tracker.send("event", "import", kind, label=f"{foc.VERSION}-{_get_context()}")
 
             global _import_logged
             _import_logged = True

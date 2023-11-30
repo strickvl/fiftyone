@@ -119,7 +119,7 @@ class ListenPayload:
 
 
 def dict_factory(data: t.List[t.Tuple[str, t.Any]]) -> t.Dict[str, t.Any]:
-    return dict(
-        (k, v.serialize() if isinstance(v, fos.StateDescription) else v)
+    return {
+        k: v.serialize() if isinstance(v, fos.StateDescription) else v
         for k, v in data
-    )
+    }

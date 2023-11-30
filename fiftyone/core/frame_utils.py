@@ -25,9 +25,7 @@ def is_frame_number(value):
     """
     if isinstance(value, numbers.Integral):
         if value < 1:
-            raise FrameError(
-                "Frame numbers must be integers; found %s" % type(value)
-            )
+            raise FrameError(f"Frame numbers must be integers; found {type(value)}")
 
         return True
 
@@ -46,14 +44,10 @@ def validate_frame_number(value):
         :class:`FrameError`: if ``value`` is not a frame number
     """
     if not isinstance(value, numbers.Integral):
-        raise FrameError(
-            "Frame numbers must be integers; found %s" % type(value)
-        )
+        raise FrameError(f"Frame numbers must be integers; found {type(value)}")
 
     if value < 1:
-        raise FrameError(
-            "Frame numbers must be 1-based integers; found %s" % value
-        )
+        raise FrameError(f"Frame numbers must be 1-based integers; found {value}")
 
 
 class FrameError(Exception):

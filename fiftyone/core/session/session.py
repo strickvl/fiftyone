@@ -364,8 +364,7 @@ class Session(object):
         if self.desktop:
             if focx.is_notebook_context():
                 raise ValueError(
-                    "Cannot open a Desktop App instance from a %s notebook"
-                    % focx._get_context()
+                    f"Cannot open a Desktop App instance from a {focx._get_context()} notebook"
                 )
 
             if not focn.DEV_INSTALL:
@@ -389,26 +388,22 @@ class Session(object):
     ) -> None:
         if dataset is not None and not isinstance(dataset, fod.Dataset):
             raise ValueError(
-                "`dataset` must be a %s or None; found %s"
-                % (fod.Dataset, type(dataset))
+                f"`dataset` must be a {fod.Dataset} or None; found {type(dataset)}"
             )
 
         if view is not None and not isinstance(view, fov.DatasetView):
             raise ValueError(
-                "`view` must be a %s or None; found %s"
-                % (fov.DatasetView, type(view))
+                f"`view` must be a {fov.DatasetView} or None; found {type(view)}"
             )
 
         if plots is not None and not isinstance(plots, fop.PlotManager):
             raise ValueError(
-                "`plots` must be a %s or None; found %s"
-                % (fop.PlotManager, type(plots))
+                f"`plots` must be a {fop.PlotManager} or None; found {type(plots)}"
             )
 
         if config is not None and not isinstance(config, AppConfig):
             raise ValueError(
-                "`config` must be a %s or None; found %s"
-                % (AppConfig, type(config))
+                f"`config` must be a {AppConfig} or None; found {type(config)}"
             )
 
     def __repr__(self) -> str:
@@ -490,18 +485,14 @@ class Session(object):
 
         if not isinstance(config, AppConfig):
             raise ValueError(
-                "`Session.config` must be a %s or None; found %s"
-                % (AppConfig, type(config))
+                f"`Session.config` must be a {AppConfig} or None; found {type(config)}"
             )
 
         self._state.config = config
 
     @property
     def _collection(self) -> t.Union[fod.Dataset, fov.DatasetView, None]:
-        if self.view is not None:
-            return self.view
-
-        return self.dataset
+        return self.view if self.view is not None else self.dataset
 
     @property
     def dataset(self) -> t.Union[fod.Dataset, None]:
@@ -513,8 +504,7 @@ class Session(object):
     def dataset(self, dataset: t.Union[fod.Dataset, None]) -> None:
         if dataset is not None and not isinstance(dataset, fod.Dataset):
             raise ValueError(
-                "`Session.dataset` must be a %s or None; found %s"
-                % (fod.Dataset, type(dataset))
+                f"`Session.dataset` must be a {fod.Dataset} or None; found {type(dataset)}"
             )
 
         if dataset is not None:
@@ -544,8 +534,7 @@ class Session(object):
     def view(self, view: t.Union[fov.DatasetView, None]) -> None:
         if view is not None and not isinstance(view, fov.DatasetView):
             raise ValueError(
-                "`Session.view` must be a %s or None; found %s"
-                % (fov.DatasetView, type(view))
+                f"`Session.view` must be a {fov.DatasetView} or None; found {type(view)}"
             )
 
         self._state.view = view
@@ -580,8 +569,7 @@ class Session(object):
     def plots(self, plots: t.Optional[fop.PlotManager]) -> None:
         if plots is not None and not isinstance(plots, fop.PlotManager):
             raise ValueError(
-                "`Session.plots` must be a %s or None; found %s"
-                % (fop.PlotManager, type(plots))
+                f"`Session.plots` must be a {fop.PlotManager} or None; found {type(plots)}"
             )
 
         if plots is None:
@@ -779,8 +767,8 @@ class Session(object):
             elements = [
                 ("Dataset:", self.dataset.name),
                 ("Media type:", self.dataset.media_type),
-                ("Num %s:" % etype, len(self._collection)),
-                ("Selected %s:" % etype, len(self.selected)),
+                (f"Num {etype}:", len(self._collection)),
+                (f"Selected {etype}:", len(self.selected)),
                 ("Selected labels:", len(self.selected_labels)),
             ]
         else:

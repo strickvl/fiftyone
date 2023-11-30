@@ -48,7 +48,7 @@ def parse_field_str(field_str):
         elif issubclass(ftype, (ListField, DictField)):
             subfield = param
         else:
-            raise ValueError("Failed to parse field string '%s'" % field_str)
+            raise ValueError(f"Failed to parse field string '{field_str}'")
 
     return ftype, embedded_doc_type, subfield
 
@@ -64,26 +64,17 @@ class IntField(mongoengine.fields.IntField, Field):
     """A 32 bit integer field."""
 
     def to_mongo(self, value):
-        if value is None:
-            return None
-
-        return int(value)
+        return None if value is None else int(value)
 
 
 class ObjectIdField(mongoengine.fields.ObjectIdField, Field):
     """An Object ID field."""
 
     def to_mongo(self, value):
-        if value is None:
-            return None
-
-        return ObjectId(value)
+        return None if value is None else ObjectId(value)
 
     def to_python(self, value):
-        if value is None:
-            return None
-
-        return str(value)
+        return None if value is None else str(value)
 
 
 class UUIDField(mongoengine.fields.UUIDField, Field):
@@ -108,13 +99,7 @@ class DateField(mongoengine.fields.DateField, Field):
         return datetime(value.year, value.month, value.day, tzinfo=pytz.utc)
 
     def to_python(self, value):
-        if value is None:
-            return None
-
-        # Explicitly converting to UTC is important here because PyMongo loads
-        # everything as `datetime`, which will respect `fo.config.timezone`,
-        # but we always need UTC here for the conversion back to `date`
-        return value.astimezone(pytz.utc).date()
+        return None if value is None else value.astimezone(pytz.utc).date()
 
     def validate(self, value):
         if not isinstance(value, date):
@@ -133,10 +118,7 @@ class FloatField(mongoengine.fields.FloatField, Field):
     """A floating point number field."""
 
     def to_mongo(self, value):
-        if value is None:
-            return None
-
-        return float(value)
+        return None if value is None else float(value)
 
     def validate(self, value):
         try:
@@ -144,7 +126,7 @@ class FloatField(mongoengine.fields.FloatField, Field):
         except OverflowError:
             self.error("The value is too large to be converted to float")
         except (TypeError, ValueError):
-            self.error("%s could not be converted to float" % value)
+            self.error(f"{value} could not be converted to float")
 
         if self.min_value is not None and value < self.min_value:
             self.error("Float value is too small")
@@ -174,18 +156,14 @@ class ListField(mongoengine.fields.ListField, Field):
         if field is not None:
             if not isinstance(field, Field):
                 raise ValueError(
-                    "Invalid field type '%s'; must be a subclass of %s"
-                    % (type(field), Field)
+                    f"Invalid field type '{type(field)}'; must be a subclass of {Field}"
                 )
 
         super().__init__(field=field, **kwargs)
 
     def __str__(self):
         if self.field is not None:
-            return "%s(%s)" % (
-                etau.get_class_name(self),
-                etau.get_class_name(self.field),
-            )
+            return f"{etau.get_class_name(self)}({etau.get_class_name(self.field)})"
 
         return etau.get_class_name(self)
 
@@ -230,18 +208,14 @@ class DictField(mongoengine.fields.DictField, Field):
         if field is not None:
             if not isinstance(field, Field):
                 raise ValueError(
-                    "Invalid field type '%s'; must be a subclass of %s"
-                    % (type(field), Field)
+                    f"Invalid field type '{type(field)}'; must be a subclass of {Field}"
                 )
 
         super().__init__(field=field, **kwargs)
 
     def __str__(self):
         if self.field is not None:
-            return "%s(%s)" % (
-                etau.get_class_name(self),
-                etau.get_class_name(self.field),
-            )
+            return f"{etau.get_class_name(self)}({etau.get_class_name(self.field)})"
 
         return etau.get_class_name(self)
 
@@ -275,10 +249,7 @@ class IntDictField(DictField):
         return super().to_mongo(value)
 
     def to_python(self, value):
-        if value is None:
-            return None
-
-        return {int(k): v for k, v in value.items()}
+        return None if value is None else {int(k): v for k, v in value.items()}
 
     def validate(self, value):
         if not isinstance(value, dict):
@@ -358,10 +329,7 @@ class _GeoField(Field):
         return SON([("type", self._TYPE), ("coordinates", value)])
 
     def to_python(self, value):
-        if isinstance(value, dict):
-            return value["coordinates"]
-
-        return value
+        return value["coordinates"] if isinstance(value, dict) else value
 
 
 class GeoPointField(_GeoField, mongoengine.fields.PointField):
@@ -626,10 +594,7 @@ class EmbeddedDocumentField(mongoengine.fields.EmbeddedDocumentField, Field):
         self._validation_schema = None
 
     def __str__(self):
-        return "%s(%s)" % (
-            etau.get_class_name(self),
-            etau.get_class_name(self.document_type),
-        )
+        return f"{etau.get_class_name(self)}({etau.get_class_name(self.document_type)})"
 
     def get_field_schema(
         self, ftype=None, embedded_doc_type=None, include_private=False
@@ -683,10 +648,7 @@ class EmbeddedDocumentListField(
 
     def __str__(self):
         # pylint: disable=no-member
-        return "%s(%s)" % (
-            etau.get_class_name(self),
-            etau.get_class_name(self.document_type),
-        )
+        return f"{etau.get_class_name(self)}({etau.get_class_name(self.document_type)})"
 
 
 _ARRAY_FIELDS = (VectorField, ArrayField)

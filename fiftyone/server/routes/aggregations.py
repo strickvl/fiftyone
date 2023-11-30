@@ -64,7 +64,7 @@ async def get_app_statistics(view, filters):
     if view.media_type == fom.VIDEO:
         for path, field in view.get_frame_field_schema().items():
             aggregations.update(
-                _build_field_aggregations("frames." + path, field, filters)
+                _build_field_aggregations(f"frames.{path}", field, filters)
             )
 
     ordered = [agg for path in aggregations.values() for agg in path.values()]

@@ -126,15 +126,15 @@ def _add_labels_tags_counts(view, filtered_fields, label_tags):
 
         path = _get_filtered_path(view, path, filtered_fields, label_tags)
         if issubclass(field.document_type, fol._HasLabelList):
-            if path.startswith(view._FRAMES_PREFIX):
-                add_tags = _add_frame_labels_tags
-            else:
-                add_tags = _add_labels_tags
+            add_tags = (
+                _add_frame_labels_tags
+                if path.startswith(view._FRAMES_PREFIX)
+                else _add_labels_tags
+            )
+        elif path.startswith(view._FRAMES_PREFIX):
+            add_tags = _add_frame_label_tags
         else:
-            if path.startswith(view._FRAMES_PREFIX):
-                add_tags = _add_frame_label_tags
-            else:
-                add_tags = _add_label_tags
+            add_tags = _add_label_tags
 
         view = add_tags(path, field, view)
 
@@ -165,10 +165,7 @@ def _make_expression(field, path, args):
         expr = lambda subexpr: F(field.db_field or field.name).apply(subexpr)
 
     subexpr = _make_expression(new_field, rest, args)
-    if subexpr is not None:
-        return expr(subexpr)
-
-    return None
+    return expr(subexpr) if subexpr is not None else None
 
 
 def _make_filter_stages(
@@ -226,12 +223,9 @@ def _make_filter_stages(
             )
             if expr is not None:
                 if hide_result:
-                    new_field = "__%s" % path.split(".")[-1]
+                    new_field = f'__{path.split(".")[-1]}'
                     if frames:
-                        new_field = "%s%s" % (
-                            view._FRAMES_PREFIX,
-                            new_field,
-                        )
+                        new_field = f"{view._FRAMES_PREFIX}{new_field}"
                 else:
                     new_field = None
 
@@ -267,11 +261,7 @@ def _make_filter_stages(
             else:
                 new_field = None
 
-            if path in filtered_labels:
-                prefix = "__"
-            else:
-                prefix = ""
-
+            prefix = "__" if path in filtered_labels else ""
             stages.append(
                 fosg.FilterLabels(
                     path,
@@ -401,11 +391,7 @@ def _apply_others(expr, f, args):
         "ninf": -float("inf"),
         "inf": float("inf"),
     }
-    include = []
-    for k, v in nonfinites.items():
-        if k in args and args[k]:
-            include.append(v)
-
+    include = [v for k, v in nonfinites.items() if k in args and args[k]]
     if expr is None:
         expr = f.is_in(include)
     else:
@@ -438,14 +424,14 @@ def _get_filtered_path(view, path, filtered_fields, label_tags):
         return path
 
     if path.startswith(view._FRAMES_PREFIX):
-        return "%s__%s" % (view._FRAMES_PREFIX, path.split(".")[1])
+        return f'{view._FRAMES_PREFIX}__{path.split(".")[1]}'
 
-    return "__%s" % path
+    return f"__{path}"
 
 
 def _add_frame_labels_tags(path, field, view):
     frames, path = path.split(".")
-    items = "%s.%s" % (path, field.document_type._LABEL_LIST_FIELD)
+    items = f"{path}.{field.document_type._LABEL_LIST_FIELD}"
     view = view.set_field(
         _LABEL_TAGS,
         F(_LABEL_TAGS).extend(
@@ -460,7 +446,7 @@ def _add_frame_labels_tags(path, field, view):
 
 def _add_frame_label_tags(path, field, view):
     frames, path = path.split(".")
-    tags = "%s.tags" % path
+    tags = f"{path}.tags"
     view = view.set_field(
         _LABEL_TAGS,
         F(_LABEL_TAGS).extend(
@@ -474,7 +460,7 @@ def _add_frame_label_tags(path, field, view):
 
 
 def _add_labels_tags(path, field, view):
-    items = "%s.%s" % (path, field.document_type._LABEL_LIST_FIELD)
+    items = f"{path}.{field.document_type._LABEL_LIST_FIELD}"
     view = view.set_field(
         _LABEL_TAGS,
         F(_LABEL_TAGS).extend(F(items).reduce(VALUE.extend(F("tags")), [])),
@@ -484,7 +470,7 @@ def _add_labels_tags(path, field, view):
 
 
 def _add_label_tags(path, field, view):
-    tags = "%s.tags" % path
+    tags = f"{path}.tags"
     return view.set_field(
         _LABEL_TAGS,
         F(_LABEL_TAGS).extend((F(tags) != None).if_else(F(tags), [])),

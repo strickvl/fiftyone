@@ -96,8 +96,7 @@ class StateDescription(etas.Serializable):
         for field, value in d.get("config", {}).items():
             setattr(config, field, value)
 
-        timezone = d.get("config", {}).get("timezone", None)
-        if timezone:
+        if timezone := d.get("config", {}).get("timezone", None):
             fo.config.timezone = timezone
 
         return cls(

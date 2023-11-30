@@ -19,8 +19,7 @@ class Dataset(object):
             a :class:`fiftyone.utils.data.importers.DatasetImporter` class
         """
         raise TypeError(
-            "Dataset type '%s' does not support imports"
-            % etau.get_class_name(self)
+            f"Dataset type '{etau.get_class_name(self)}' does not support imports"
         )
 
     def get_dataset_exporter_cls(self):
@@ -31,8 +30,7 @@ class Dataset(object):
             a :class:`fiftyone.utils.data.exporters.DatasetExporter` class
         """
         raise TypeError(
-            "Dataset type '%s' does not support exports"
-            % etau.get_class_name(self)
+            f"Dataset type '{etau.get_class_name(self)}' does not support exports"
         )
 
 

@@ -14,13 +14,11 @@ def up(db, dataset_name):
     if dataset_dict["media_type"] != "video":
         return
 
-    fields = []
-    for field in dataset_dict["sample_fields"]:
-        if field["name"] == "frames":
-            continue
-
-        fields.append(field)
-
+    fields = [
+        field
+        for field in dataset_dict["sample_fields"]
+        if field["name"] != "frames"
+    ]
     dataset_dict["sample_fields"] = fields
     db.datasets.replace_one(match_d, dataset_dict)
     sample_coll = db[dataset_dict["sample_collection_name"]]
@@ -59,13 +57,11 @@ def down(db, dataset_name):
     counts = frame_coll.aggregate(
         [{"$group": {"_id": "$_sample_id", "count": {"$sum": 1}}}]
     )
-    writes = []
-    for count in counts:
-        writes.append(
-            pm.UpdateOne(
-                {"_id": count["_id"]},
-                {"$set": {"frames.frame_count": count["count"]}},
-            )
+    writes = [
+        pm.UpdateOne(
+            {"_id": count["_id"]},
+            {"$set": {"frames.frame_count": count["count"]}},
         )
-
+        for count in counts
+    ]
     sample_coll.bulk_write(writes)

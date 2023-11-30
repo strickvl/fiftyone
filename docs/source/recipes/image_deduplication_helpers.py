@@ -159,12 +159,7 @@ def download_dataset():
     y = y_test[:dataset_size, :]
 
     for i in range(x.shape[0]):
-        if random.random() > 0.95:
-            # pick a random sample 5% of the time
-            idx = random.randint(0, x.shape[0])
-        else:
-            idx = i
-
+        idx = random.randint(0, x.shape[0]) if random.random() > 0.95 else i
         # get label
         fine_label = FINE_CLASSES[y[idx, 0]]
 

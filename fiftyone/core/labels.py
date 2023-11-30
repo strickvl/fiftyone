@@ -87,9 +87,7 @@ class Label(DynamicEmbeddedDocument):
         if default is not no_default:
             return default
 
-        raise AttributeError(
-            "%s has no attribute '%s'" % (self.__class__.__name__, name)
-        )
+        raise AttributeError(f"{self.__class__.__name__} has no attribute '{name}'")
 
     def set_attribute_value(self, name, value):
         """Sets the value of the attribute with the given name.
@@ -114,9 +112,7 @@ class Label(DynamicEmbeddedDocument):
         try:
             delattr(self, name)
         except AttributeError:
-            raise AttributeError(
-                "%s has no attribute '%s'" % (self.__class__.__name__, name)
-            )
+            raise AttributeError(f"{self.__class__.__name__} has no attribute '{name}'")
 
 
 # @todo remove this in favor of dynamic-only attributes
@@ -255,9 +251,7 @@ class _HasAttributesDict(Label):
         if default is not no_default:
             return default
 
-        raise AttributeError(
-            "%s has no attribute '%s'" % (self.__class__.__name__, name)
-        )
+        raise AttributeError(f"{self.__class__.__name__} has no attribute '{name}'")
 
     def set_attribute_value(self, name, value):
         """Sets the value of the attribute with the given name.
@@ -295,18 +289,12 @@ class _HasAttributesDict(Label):
             try:
                 del self.attributes[name]
             except KeyError:
-                raise AttributeError(
-                    "%s has no attribute '%s'"
-                    % (self.__class__.__name__, name)
-                )
+                raise AttributeError(f"{self.__class__.__name__} has no attribute '{name}'")
         else:
             try:
                 delattr(self, name)
             except AttributeError:
-                raise AttributeError(
-                    "%s has no attribute '%s'"
-                    % (self.__class__.__name__, name)
-                )
+                raise AttributeError(f"{self.__class__.__name__} has no attribute '{name}'")
 
 
 class _HasID(Label):
@@ -731,11 +719,7 @@ class Polyline(_HasID, _HasAttributesDict, Label):
             points = [[(x * w, y * h) for x, y in shape] for shape in points]
 
         if len(points) == 1:
-            if self.filled:
-                return sg.Polygon(points[0])
-
-            return sg.LineString(points[0])
-
+            return sg.Polygon(points[0]) if self.filled else sg.LineString(points[0])
         if self.filled:
             return sg.MultiPolygon(list(zip(points, itertools.repeat(None))))
 
@@ -1286,11 +1270,10 @@ def _segmentation_to_detections(segmentation, mask_targets, mask_types):
                 "('stuff', 'thing')"
             )
 
-        for bbox, instance_mask in instances:
-            detections.append(
-                Detection(label=label, bounding_box=bbox, mask=instance_mask)
-            )
-
+        detections.extend(
+            Detection(label=label, bounding_box=bbox, mask=instance_mask)
+            for bbox, instance_mask in instances
+        )
     return detections
 
 
@@ -1419,8 +1402,7 @@ def _from_geo_json_single(d):
         line = lines[0]
     else:
         raise ValueError(
-            "%s can contain only one line. Use %s to store multiple lines"
-            % (GeoLocation, GeoLocations)
+            f"{GeoLocation} can contain only one line. Use {GeoLocations} to store multiple lines"
         )
 
     if not polygons:

@@ -626,11 +626,9 @@ def lines(
             else:
                 link_type = "samples"
         elif link_field == "frames":
-            if isinstance(samples, fov.FramesView):
-                link_type = "frames"
-            else:
-                link_type = "frames"
+            if not isinstance(samples, fov.FramesView):
                 init_fcn = lambda view: view.to_frames()
+            link_type = "frames"
         else:
             link_type = "labels"
             selection_mode = "patches"
@@ -797,11 +795,9 @@ def scatterplot(
             else:
                 link_type = "samples"
         elif link_field == "frames":
-            if isinstance(samples, fov.FramesView):
-                link_type = "frames"
-            else:
-                link_type = "frames"
+            if not isinstance(samples, fov.FramesView):
                 init_fcn = lambda view: view.to_frames()
+            link_type = "frames"
         else:
             link_type = "labels"
             selection_mode = "patches"
@@ -861,7 +857,7 @@ def _get_ids(samples, link_field=None, ref=None, is_frames=False):
         ids = _unwind_values(ids)
 
     if ref is not None:
-        values_type = "%s IDs" % ptype
+        values_type = f"{ptype} IDs"
         _validate_values(ids, ref, values_type, is_frames=is_frames)
 
     return ids
@@ -1058,7 +1054,7 @@ def _parse_locations(locations, samples):
             embedded_doc_type=fol.GeoLocation,
         )
 
-    locations = samples.values(location_field + ".point.coordinates")
+    locations = samples.values(f"{location_field}.point.coordinates")
     return np.asarray(locations)
 
 
@@ -1206,10 +1202,7 @@ class InteractiveCollection(InteractiveMatplotlibPlot):
 
     @property
     def _selected_ids(self):
-        if self._inds is None:
-            return None
-
-        return list(self._ids[self._inds])
+        return None if self._inds is None else list(self._ids[self._inds])
 
     def _register_sync_callback(self, callback):
         if self.supports_session_updates:
@@ -1388,11 +1381,7 @@ class InteractiveCollection(InteractiveMatplotlibPlot):
         if is_click:
             dists = skp.euclidean_distances(self._xy, np.array([vertices[0]]))
             click_ind = np.argmin(dists)
-            if dists[click_ind] < click_thresh:
-                inds = [click_ind]
-            else:
-                inds = []
-
+            inds = [click_ind] if dists[click_ind] < click_thresh else []
             inds = np.array(inds, dtype=int)
         else:
             path = Path(vertices)
@@ -1428,11 +1417,7 @@ class InteractiveCollection(InteractiveMatplotlibPlot):
         self._select_inds(inds)
 
     def _select_ids(self, ids, view=None):
-        if ids is not None:
-            inds = [self._ids_to_inds[_id] for _id in ids]
-        else:
-            inds = None
-
+        inds = [self._ids_to_inds[_id] for _id in ids] if ids is not None else None
         self._select_inds(inds)
 
     def _select_inds(self, inds):
@@ -1602,10 +1587,7 @@ def _plot_scatter(
         marker_size = max(1, min(marker_size, 50))
 
     if sizes is None:
-        if values is not None:
-            sizes = np.full(values.shape, marker_size)
-        else:
-            sizes = marker_size
+        sizes = marker_size if values is None else np.full(values.shape, marker_size)
     else:
         # Scale sizes so that 0.5 * max(sizes) corresponds to `marker_size`
         min_marker_size = min(0.1, marker_size)

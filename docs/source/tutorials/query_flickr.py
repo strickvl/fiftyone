@@ -33,11 +33,7 @@ def query_flickr(
         if url is not None:
             urls.append(url)
 
-    if query_in_path:
-        basedir = os.path.join(path, query)
-    else:
-        basedir = path
-
+    basedir = os.path.join(path, query) if query_in_path else path
     print(
         "Downloading %d images matching query '%s' to '%s'"
         % (len(urls), query, basedir)
@@ -46,7 +42,7 @@ def query_flickr(
     for url in urls:
         outpath = os.path.join(basedir, client.get_filename(url))
         client.download(url, outpath)
-        print("Downloading image to '%s'" % outpath)
+        print(f"Downloading image to '{outpath}'")
 
 
 if __name__ == "__main__":

@@ -347,10 +347,8 @@ def _compute_sample_metadata(filepath, media_type, skip_failures=False):
 
 def _get_metadata(filepath, media_type):
     if media_type == fom.IMAGE:
-        metadata = ImageMetadata.build_for(filepath)
+        return ImageMetadata.build_for(filepath)
     elif media_type == fom.VIDEO:
-        metadata = VideoMetadata.build_for(filepath)
+        return VideoMetadata.build_for(filepath)
     else:
-        metadata = Metadata.build_for(filepath)
-
-    return metadata
+        return Metadata.build_for(filepath)

@@ -184,7 +184,7 @@ class ClientMonitor(object):
             response to send to the client (True on success, Exception on failure)
         """
         if not isinstance(message, tuple):
-            raise TypeError("Expected tuple, got " + str(type(message)))
+            raise TypeError(f"Expected tuple, got {str(type(message))}")
         command, arg = message
         with lock:
             if exiting.is_set():
@@ -203,7 +203,7 @@ class ClientMonitor(object):
                 self._notify_exit(process)
                 return True
             else:
-                raise ValueError("Unrecognized command: " + repr(command))
+                raise ValueError(f"Unrecognized command: {repr(command)}")
 
 
 if __name__ != "__main__":
@@ -232,7 +232,7 @@ if not command:
     raise ValueError("No command given")
 
 if command[0].startswith("--"):
-    raise ValueError("Unhandled service argument: %s" % command[0])
+    raise ValueError(f"Unhandled service argument: {command[0]}")
 
 
 if args.multi:

@@ -108,8 +108,7 @@ def create_field(
 
             if not isinstance(subfield, Field):
                 raise ValueError(
-                    "Invalid subfield type %s; must be a subclass of %s"
-                    % (type(subfield), Field)
+                    f"Invalid subfield type {type(subfield)}; must be a subclass of {Field}"
                 )
 
             kwargs["field"] = subfield
@@ -119,8 +118,7 @@ def create_field(
             embedded_doc_type, BaseEmbeddedDocument
         ):
             raise ValueError(
-                "Invalid embedded_doc_type %s; must be a subclass of %s"
-                % (embedded_doc_type, BaseEmbeddedDocument)
+                f"Invalid embedded_doc_type {embedded_doc_type}; must be a subclass of {BaseEmbeddedDocument}"
             )
 
         kwargs.update(
@@ -234,12 +232,10 @@ class SampleFieldDocument(EmbeddedDocument):
             if len(fields) != len(cur_fields):
                 return False
 
-            if any([name not in cur_fields for name in fields]):
+            if any(name not in cur_fields for name in fields):
                 return False
 
-            return any(
-                [not cur_fields[name].matches(fields[name]) for name in fields]
-            )
+            return any(not cur_fields[name].matches(fields[name]) for name in fields)
 
         return True
 

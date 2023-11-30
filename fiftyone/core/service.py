@@ -39,9 +39,9 @@ class ServiceListenTimeout(ServiceException):
         self.port = port
 
     def __str__(self):
-        message = "%s failed to bind to port" % self.name
+        message = f"{self.name} failed to bind to port"
         if self.port is not None:
-            message += " " + str(self.port)
+            message += f" {str(self.port)}"
 
         return message
 
@@ -250,7 +250,7 @@ class DatabaseService(MultiClientService):
             etau.ensure_dir(database_dir)
         except:
             raise PermissionError(
-                "Database directory `%s` cannot be written to" % database_dir
+                f"Database directory `{database_dir}` cannot be written to"
             )
 
         try:
@@ -259,17 +259,12 @@ class DatabaseService(MultiClientService):
             if not os.path.isfile(log_path):
                 etau.ensure_empty_file(log_path)
         except:
-            raise PermissionError(
-                "Database log path `%s` cannot be written to" % log_path
-            )
+            raise PermissionError(f"Database log path `{log_path}` cannot be written to")
 
         if focx._get_context() == focx._COLAB:
             return ["sudo"] + args
 
-        if focx._get_context() == focx._DATABRICKS:
-            return ["sudo"] + args
-
-        return args
+        return ["sudo"] + args if focx._get_context() == focx._DATABRICKS else args
 
     @property
     def port(self):

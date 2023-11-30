@@ -75,7 +75,7 @@ def up(db, dataset_name):
 
         return
 
-    frame_coll = "frames.%s" % sample_coll
+    frame_coll = f"frames.{sample_coll}"
     for s in db[sample_coll].find():
         frames_d = {
             "_cls": "_Frames",
@@ -112,11 +112,7 @@ def _down_convert_polyline_points(d):
         if "points" not in d:
             return False
 
-        if len(d["points"]) != 1:
-            d["points"] = [[]]
-        else:
-            d["points"] = d["points"][0]
-
+        d["points"] = [[]] if len(d["points"]) != 1 else d["points"][0]
         return True
 
     if cls == "Polylines":
@@ -132,7 +128,7 @@ def down(db, dataset_name):
     match_d = {"name": dataset_name}
     dataset_dict = db.datasets.find_one(match_d)
     sample_coll = dataset_dict["sample_collection_name"]
-    frame_coll = "frames.%s" % sample_coll
+    frame_coll = f"frames.{sample_coll}"
 
     for field in dataset_dict["sample_fields"] + dataset_dict["frame_fields"]:
         field["media_type"] = None

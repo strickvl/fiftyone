@@ -64,10 +64,10 @@ class ViewStage(object):
 
             v_repr = _repr.repr(v)
             # v_repr = etau.summarize_long_str(v_repr, 30)
-            kwargs_list.append("%s=%s" % (k, v_repr))
+            kwargs_list.append(f"{k}={v_repr}")
 
         kwargs_str = ", ".join(kwargs_list)
-        return "%s(%s)" % (self.__class__.__name__, kwargs_str)
+        return f"{self.__class__.__name__}({kwargs_str})"
 
     @property
     def has_view(self):
@@ -153,9 +153,7 @@ class ViewStage(object):
             a :class:`fiftyone.core.view.DatasetView`
         """
         if not self.has_view:
-            raise ValueError(
-                "%s stages use `to_mongo()`, not `load_view()`" % type(self)
-            )
+            raise ValueError(f"{type(self)} stages use `to_mongo()`, not `load_view()`")
 
         raise NotImplementedError("subclasses must implement `load_view()`")
 
@@ -173,9 +171,7 @@ class ViewStage(object):
             a MongoDB aggregation pipeline (list of dicts)
         """
         if not self.has_view:
-            raise ValueError(
-                "%s stages use `load_view()`, not `to_mongo()`" % type(self)
-            )
+            raise ValueError(f"{type(self)} stages use `load_view()`, not `to_mongo()`")
 
         raise NotImplementedError("subclasses must implement `to_mongo()`")
 
@@ -261,7 +257,7 @@ class ViewStage(object):
         """
         view_stage_cls = etau.get_class(d["_cls"])
         uuid = d.get("_uuid", None)
-        stage = view_stage_cls(**{k: v for (k, v) in d["kwargs"]})
+        stage = view_stage_cls(**dict(d["kwargs"]))
         stage._uuid = uuid
         return stage
 
@@ -515,11 +511,7 @@ class ExcludeBy(ViewStage):
     """
 
     def __init__(self, field, values):
-        if etau.is_container(values):
-            values = list(values)
-        else:
-            values = [values]
-
+        values = list(values) if etau.is_container(values) else [values]
         self._field = field
         self._values = values
 
@@ -629,21 +621,16 @@ class ExcludeFields(ViewStage):
             sample_collection, frames=False
         )
 
-        excluded_frame_fields = [
+        if excluded_frame_fields := [
             sample_collection._FRAMES_PREFIX + f
             for f in self.get_excluded_fields(sample_collection, frames=True)
-        ]
-
-        if excluded_frame_fields:
+        ]:
             # Don't project on root `frames` and embedded fields
             # https://docs.mongodb.com/manual/reference/operator/aggregation/project/#path-collision-errors-in-embedded-fields
             excluded_fields = [f for f in excluded_fields if f != "frames"]
             excluded_fields += excluded_frame_fields
 
-        if not excluded_fields:
-            return []
-
-        return [{"$unset": excluded_fields}]
+        return [] if not excluded_fields else [{"$unset": excluded_fields}]
 
     def _needs_frames(self, sample_collection):
         return any(
@@ -687,9 +674,8 @@ class ExcludeFields(ViewStage):
                 )
             )
 
-            defaults = [f for f in fields if f in default_fields]
-            if defaults:
-                raise ValueError("Cannot exclude default fields %s" % defaults)
+            if defaults := [f for f in fields if f in default_fields]:
+                raise ValueError(f"Cannot exclude default fields {defaults}")
 
         if frame_fields:
             default_frame_fields = set(
@@ -698,11 +684,8 @@ class ExcludeFields(ViewStage):
                 )
             )
 
-            defaults = [f for f in fields if f in default_frame_fields]
-            if defaults:
-                raise ValueError(
-                    "Cannot exclude default frame fields %s" % defaults
-                )
+            if defaults := [f for f in fields if f in default_frame_fields]:
+                raise ValueError(f"Cannot exclude default frame fields {defaults}")
 
 
 class ExcludeFrames(ViewStage):
@@ -974,16 +957,12 @@ class ExcludeLabels(ViewStage):
                 list_path, _ = sample_collection._handle_frame_field(list_path)
                 filtered_fields.append(list_path)
 
-        if filtered_fields:
-            return filtered_fields
-
-        return None
+        return filtered_fields if filtered_fields else None
 
     def to_mongo(self, _):
         if self._pipeline is None:
             raise ValueError(
-                "`validate()` must be called before using a %s stage"
-                % self.__class__
+                f"`validate()` must be called before using a {self.__class__} stage"
             )
 
         return self._pipeline
@@ -1331,9 +1310,7 @@ class FilterField(ViewStage):
     def _get_mongo_filter(self):
         if self._is_frame_field:
             filter_field = self._field.split(".", 1)[1]  # remove `frames`
-            return _get_field_mongo_filter(
-                self._filter, prefix="$frame." + filter_field
-            )
+            return _get_field_mongo_filter(self._filter, prefix=f"$frame.{filter_field}")
 
         return _get_field_mongo_filter(self._filter, prefix=self._field)
 
@@ -1381,12 +1358,9 @@ class FilterField(ViewStage):
 
         if is_frame_field:
             if field in ("id", "frame_number"):
-                raise ValueError(
-                    "Cannot filter required frame field '%s'" % field
-                )
-        else:
-            if field in ("id", "filepath"):
-                raise ValueError("Cannot filter required field '%s'" % field)
+                raise ValueError(f"Cannot filter required frame field '{field}'")
+        elif field in ("id", "filepath"):
+            raise ValueError(f"Cannot filter required field '{field}'")
 
 
 def _get_filter_field_pipeline(
@@ -1401,7 +1375,7 @@ def _get_filter_field_pipeline(
                 + new_field: {
                     "$cond": {
                         "if": cond,
-                        "then": "$" + prefix + filter_field,
+                        "then": f"${prefix}{filter_field}",
                         "else": None,
                     }
                 }
@@ -1424,7 +1398,7 @@ def _get_filter_frames_field_pipeline(
     filter_field, new_field, filter_arg, only_matches=True, prefix=""
 ):
     cond = _get_field_mongo_filter(
-        filter_arg, prefix="$frame." + prefix + filter_field
+        filter_arg, prefix=f"$frame.{prefix}{filter_field}"
     )
 
     pipeline = [
@@ -1470,7 +1444,7 @@ def _get_frames_field_only_matches_expr(field):
 
 def _get_field_mongo_filter(filter_arg, prefix="$this"):
     if isinstance(filter_arg, foe.ViewExpression):
-        return filter_arg.to_mongo(prefix="$" + prefix)
+        return filter_arg.to_mongo(prefix=f"${prefix}")
 
     return filter_arg
 
@@ -1809,8 +1783,7 @@ class FilterLabels(ViewStage):
     def to_mongo(self, sample_collection):
         if self._labels_field is None:
             raise ValueError(
-                "`validate()` must be called before using a %s stage"
-                % self.__class__
+                f"`validate()` must be called before using a {self.__class__} stage"
             )
 
         labels_field, is_frame_field = sample_collection._handle_frame_field(
@@ -1879,9 +1852,7 @@ class FilterLabels(ViewStage):
 
         if self._is_frame_field:
             filter_field = self._field.split(".", 1)[1]  # remove `frames`
-            return _get_field_mongo_filter(
-                self._filter, prefix="$frame." + filter_field
-            )
+            return _get_field_mongo_filter(self._filter, prefix=f"$frame.{filter_field}")
 
         return _get_field_mongo_filter(self._filter, prefix=self._field)
 
@@ -1945,7 +1916,7 @@ def _get_filter_list_field_pipeline(
                 prefix
                 + new_field: {
                     "$filter": {
-                        "input": "$" + prefix + filter_field,
+                        "input": f"${prefix}{filter_field}",
                         "cond": cond,
                     }
                 }
@@ -1986,7 +1957,7 @@ def _get_filter_frames_list_field_pipeline(
                                     prefix
                                     + label_field: {
                                         "$mergeObjects": [
-                                            "$$frame." + prefix + old_field,
+                                            f"$$frame.{prefix}{old_field}",
                                             {
                                                 labels_list: {
                                                     "$filter": {
@@ -2031,7 +2002,7 @@ def _get_trajectories_filter(sample_collection, field, filter_arg):
         )
 
     if issubclass(label_type, (fol.Detections, fol.Polylines, fol.Keypoints)):
-        path += "." + label_type._LABEL_LIST_FIELD
+        path += f".{label_type._LABEL_LIST_FIELD}"
         cond = _get_list_trajectory_mongo_filter(filter_arg)
         filter_expr = (F("index") != None) & foe.ViewExpression(cond)
         reduce_expr = VALUE.extend(
@@ -2046,12 +2017,11 @@ def _get_trajectories_filter(sample_collection, field, filter_arg):
         reduce_expr = (
             F(path)
             .apply(filter_expr)
-            .if_else(VALUE.append(F(path + ".index")), VALUE)
+            .if_else(VALUE.append(F(f"{path}.index")), VALUE)
         )
     else:
         raise ValueError(
-            "Cannot filter trajectories for field '%s' of type %s"
-            % (field, label_type)
+            f"Cannot filter trajectories for field '{field}' of type {label_type}"
         )
 
     # union() removes duplicates
@@ -2200,8 +2170,7 @@ class FilterKeypoints(ViewStage):
         supported_types = (fol.Keypoint, fol.Keypoints)
         if label_type not in supported_types:
             raise ValueError(
-                "Field '%s' has type %s; expected %s"
-                % (self._field, label_type, supported_types)
+                f"Field '{self._field}' has type {label_type}; expected {supported_types}"
             )
 
         is_list_field = issubclass(label_type, fol.Keypoints)
@@ -2245,21 +2214,12 @@ class FilterKeypoints(ViewStage):
         if self._labels is not None:
             skeleton = sample_collection.get_skeleton(self._field)
             if skeleton is None:
-                raise ValueError(
-                    "No keypoint skeleton found for field '%s'" % self._field
-                )
+                raise ValueError(f"No keypoint skeleton found for field '{self._field}'")
 
             if skeleton.labels is None:
-                raise ValueError(
-                    "Keypoint skeleton for field '%s' has no labels"
-                    % self._field
-                )
+                raise ValueError(f"Keypoint skeleton for field '{self._field}' has no labels")
 
-            if etau.is_str(self._labels):
-                labels = {self._labels}
-            else:
-                labels = set(self._labels)
-
+            labels = {self._labels} if etau.is_str(self._labels) else set(self._labels)
             inds = [
                 idx
                 for idx, label in enumerate(skeleton.labels)
@@ -2290,12 +2250,7 @@ class FilterKeypoints(ViewStage):
                 match_expr = F("keypoints").filter(has_points)
             else:
                 field, _ = sample_collection._handle_frame_field(new_field)
-                has_points = (
-                    F(field + ".points")
-                    .filter(F()[0] != float("nan"))
-                    .length()
-                    > 0
-                )
+                has_points = F(f"{field}.points").filter(F()[0] != float("nan")).length() > 0
                 match_expr = has_points.if_else(F(field), None)
 
             _pipeline, _ = sample_collection._make_set_field_pipeline(
@@ -2437,7 +2392,7 @@ class _GeoStage(ViewStage):
             self._location_field, fol.GeoLocation
         ):
             # Assume the user meant the `.point` field
-            self._location_key = self._location_field + ".point"
+            self._location_key = f"{self._location_field}.point"
         else:
             # Assume the user directly specified the subfield to use
             self._location_key = self._location_field
@@ -2568,7 +2523,7 @@ class GeoNear(_GeoStage):
         return self._query
 
     def to_mongo(self, _, **__):
-        distance_field = self._location_field + "._distance"
+        distance_field = f"{self._location_field}._distance"
 
         geo_near_expr = {
             "near": self._point,
@@ -2797,7 +2752,7 @@ class GroupBy(ViewStage):
         sort_expr = self._get_mongo_sort_expr()
 
         if etau.is_str(field_or_expr):
-            group_expr = "$" + field_or_expr
+            group_expr = f"${field_or_expr}"
         else:
             group_expr = field_or_expr
 
@@ -3041,8 +2996,7 @@ class LimitLabels(ViewStage):
     def to_mongo(self, sample_collection):
         if self._labels_list_field is None:
             raise ValueError(
-                "`validate()` must be called before using a %s stage"
-                % self.__class__
+                f"`validate()` must be called before using a {self.__class__} stage"
             )
 
         limit = max(self._limit, 0)
@@ -3182,7 +3136,7 @@ class MapLabels(ViewStage):
 
     def to_mongo(self, sample_collection):
         labels_field = _parse_labels_field(sample_collection, self._field)[0]
-        label_path = labels_field + ".label"
+        label_path = f"{labels_field}.label"
         expr = F().map_values(self._map)
         pipeline, _ = sample_collection._make_set_field_pipeline(
             label_path, expr
@@ -3340,8 +3294,7 @@ class SetField(ViewStage):
     def to_mongo(self, sample_collection):
         if self._pipeline is None:
             raise ValueError(
-                "`validate()` must be called before using a %s stage"
-                % self.__class__
+                f"`validate()` must be called before using a {self.__class__} stage"
             )
 
         return self._pipeline
@@ -3379,11 +3332,7 @@ class SetField(ViewStage):
         # Note, however, that this code path won't be taken when this stage has
         # been added to a view; this is purely for `ViewStage.__repr__`
         #
-        if "." in self._field:
-            prefix = "$" + self._field.rsplit(".", 1)[0]
-        else:
-            prefix = None
-
+        prefix = "$" + self._field.rsplit(".", 1)[0] if "." in self._field else None
         return foe.to_mongo(self._expr, prefix=prefix)
 
     def validate(self, sample_collection):
@@ -3854,8 +3803,7 @@ class MatchLabels(ViewStage):
     def to_mongo(self, _):
         if self._pipeline is None:
             raise ValueError(
-                "`validate()` must be called before using a %s stage"
-                % self.__class__
+                f"`validate()` must be called before using a {self.__class__} stage"
             )
 
         return self._pipeline
@@ -3928,21 +3876,13 @@ class MatchLabels(ViewStage):
         return any(sample_collection._is_frame_field(f) for f in fields)
 
     def _make_labels_pipeline(self, sample_collection):
-        if self._bool:
-            stage = Select(self._sample_ids)
-        else:
-            stage = Exclude(self._sample_ids)
-
+        stage = Select(self._sample_ids) if self._bool else Exclude(self._sample_ids)
         stage.validate(sample_collection)
         return stage.to_mongo(sample_collection)
 
     def _make_pipeline(self, sample_collection):
         if self._ids is None and self._tags is None and self._filter is None:
-            if self._bool:
-                return [{"$match": {"$expr": False}}]
-
-            return []
-
+            return [{"$match": {"$expr": False}}] if self._bool else []
         if self._fields is not None:
             fields = self._fields
         else:
@@ -3969,9 +3909,9 @@ class MatchLabels(ViewStage):
         for field in fields:
             if sample_collection._is_frame_field(field):
                 frames, leaf = field.split(".", 1)
-                new_field = frames + ".__" + leaf
+                new_field = f"{frames}.__{leaf}"
             else:
-                new_field = "__" + field
+                new_field = f"__{field}"
 
             fields_map[field] = new_field
 
@@ -4030,7 +3970,7 @@ def _render_filter(
     elif is_frame_field:
         prefix = "$frame." + field.split(".", 1)[1]
     else:
-        prefix = "$" + field
+        prefix = f"${field}"
 
     filter_dict = _replace_prefix(filter_expr_or_dict, var_prefix, prefix)
 
@@ -4054,7 +3994,7 @@ def _replace_prefix(val, old, new):
         if val == old:
             return new
 
-        if val.startswith(old + "."):
+        if val.startswith(f"{old}."):
             return new + val[len(old) :]
 
     return val
@@ -4119,11 +4059,7 @@ class MatchTags(ViewStage):
     """
 
     def __init__(self, tags, bool=None):
-        if etau.is_str(tags):
-            tags = [tags]
-        else:
-            tags = list(tags)
-
+        tags = [tags] if etau.is_str(tags) else list(tags)
         if bool is None:
             bool = True
 
@@ -4427,11 +4363,7 @@ class SelectBy(ViewStage):
     """
 
     def __init__(self, field, values, ordered=False):
-        if etau.is_container(values):
-            values = list(values)
-        else:
-            values = [values]
-
+        values = list(values) if etau.is_container(values) else [values]
         self._field = field
         self._values = values
         self._ordered = ordered
@@ -4466,7 +4398,7 @@ class SelectBy(ViewStage):
             return [{"$match": {path: {"$in": values}}}]
 
         return [
-            {"$set": {"_select_order": {"$indexOfArray": [path, "$" + path]}}},
+            {"$set": {"_select_order": {"$indexOfArray": [path, f"${path}"]}}},
             {"$match": {"_select_order": {"$gt": -1}}},
             {"$sort": {"_select_order": 1}},
             {"$unset": "_select_order"},
@@ -4571,14 +4503,12 @@ class SelectFields(ViewStage):
         )
 
         if sample_collection.media_type == fom.VIDEO:
-            selected_frame_fields = [
+            if selected_frame_fields := [
                 sample_collection._FRAMES_PREFIX + field
                 for field in self._get_selected_fields(
                     sample_collection, frames=True, use_db_fields=True
                 )
-            ]
-
-            if selected_frame_fields:
+            ]:
                 # Don't project on root `frames` and embedded fields
                 # https://docs.mongodb.com/manual/reference/operator/aggregation/project/#path-collision-errors-in-embedded-fields
                 selected_fields = [f for f in selected_fields if f != "frames"]
@@ -4615,11 +4545,11 @@ class SelectFields(ViewStage):
             if sample_collection.media_type == fom.VIDEO:
                 default_fields += ("frames",)
 
-            selected_fields = []
-            for field in self.field_names:
-                if not sample_collection._is_frame_field(field):
-                    selected_fields.append(field)
-
+            selected_fields = [
+                field
+                for field in self.field_names
+                if not sample_collection._is_frame_field(field)
+            ]
         return list(set(selected_fields) | set(default_fields))
 
     def _needs_frames(self, sample_collection):
@@ -4918,16 +4848,12 @@ class SelectLabels(ViewStage):
                 list_path, _ = sample_collection._handle_frame_field(list_path)
                 filtered_fields.append(list_path)
 
-        if filtered_fields:
-            return filtered_fields
-
-        return None
+        return filtered_fields if filtered_fields else None
 
     def to_mongo(self, _):
         if self._pipeline is None:
             raise ValueError(
-                "`validate()` must be called before using a %s stage"
-                % self.__class__
+                f"`validate()` must be called before using a {self.__class__} stage"
             )
 
         return self._pipeline
@@ -4995,20 +4921,10 @@ class SelectLabels(ViewStage):
             stage.validate(sample_collection)
             pipeline.extend(stage.to_mongo(sample_collection))
 
-        #
-        # We know that only fields in `_labels_map` will have matches, so
-        # exclude other label fields
-        #
-        # Note that we don't implement `get_excluded_fields()` here, because
-        # our intention is not to remove other fields from the schema, only to
-        # empty their sample fields in the returned view
-        #
-
-        exclude_fields = list(
+        if exclude_fields := list(
             set(sample_collection._get_label_fields())
             - set(self._labels_map.keys())
-        )
-        if exclude_fields:
+        ):
             stage = ExcludeFields(exclude_fields)
             stage.validate(sample_collection)
             pipeline.extend(stage.to_mongo(sample_collection))
@@ -5032,19 +4948,9 @@ class SelectLabels(ViewStage):
 
         pipeline = []
 
-        #
-        # We know that only `fields` will have matches, so exclude other label
-        # fields
-        #
-        # Note that we don't implement `get_excluded_fields()` here, because
-        # our intention is not to remove other fields from the schema, only to
-        # empty their sample fields in the returned view
-        #
-
-        exclude_fields = list(
+        if exclude_fields := list(
             set(sample_collection._get_label_fields()) - set(fields)
-        )
-        if exclude_fields:
+        ):
             stage = ExcludeFields(exclude_fields)
             stage.validate(sample_collection)
             pipeline.extend(stage.to_mongo(sample_collection))
@@ -5216,10 +5122,7 @@ class Skip(ViewStage):
         return self._skip
 
     def to_mongo(self, _):
-        if self._skip <= 0:
-            return []
-
-        return [{"$skip": self._skip}]
+        return [] if self._skip <= 0 else [{"$skip": self._skip}]
 
     def _kwargs(self):
         return [["skip", self._skip]]
@@ -5481,11 +5384,7 @@ class SortBySimilarity(ViewStage):
         brain_key=None,
         _state=None,
     ):
-        if etau.is_str(query_ids):
-            query_ids = [query_ids]
-        else:
-            query_ids = list(query_ids)
-
+        query_ids = [query_ids] if etau.is_str(query_ids) else list(query_ids)
         self._query_ids = query_ids
         self._k = k
         self._reverse = reverse
@@ -5524,8 +5423,7 @@ class SortBySimilarity(ViewStage):
     def to_mongo(self, _):
         if self._pipeline is None:
             raise ValueError(
-                "`validate()` must be called before using a %s stage"
-                % self.__class__
+                f"`validate()` must be called before using a {self.__class__} stage"
             )
 
         return self._pipeline
@@ -5587,11 +5485,7 @@ class SortBySimilarity(ViewStage):
         }
 
         last_state = deepcopy(self._state)
-        if last_state is not None:
-            pipeline = last_state.pop("pipeline", None)
-        else:
-            pipeline = None
-
+        pipeline = last_state.pop("pipeline", None) if last_state is not None else None
         if state != last_state or pipeline is None:
             pipeline = self._make_pipeline(sample_collection)
 
@@ -5794,11 +5688,7 @@ class ToPatches(ViewStage):
         }
 
         last_state = deepcopy(self._state)
-        if last_state is not None:
-            name = last_state.pop("name", None)
-        else:
-            name = None
-
+        name = last_state.pop("name", None) if last_state is not None else None
         if state != last_state or not fod.dataset_exists(name):
             kwargs = self._config or {}
             patches_dataset = fop.make_patches_dataset(
@@ -5825,7 +5715,7 @@ class ToPatches(ViewStage):
         ]
 
     @classmethod
-    def _params(self):
+    def _params(cls):
         return [
             {"name": "field", "type": "field", "placeholder": "label field"},
             {
@@ -5937,11 +5827,7 @@ class ToEvaluationPatches(ViewStage):
         }
 
         last_state = deepcopy(self._state)
-        if last_state is not None:
-            name = last_state.pop("name", None)
-        else:
-            name = None
-
+        name = last_state.pop("name", None) if last_state is not None else None
         if state != last_state or not fod.dataset_exists(name):
             kwargs = self._config or {}
             eval_patches_dataset = fop.make_evaluation_patches_dataset(
@@ -5970,7 +5856,7 @@ class ToEvaluationPatches(ViewStage):
         ]
 
     @classmethod
-    def _params(self):
+    def _params(cls):
         return [
             {"name": "eval_key", "type": "str", "placeholder": "eval key"},
             {
@@ -6094,11 +5980,7 @@ class ToClips(ViewStage):
         }
 
         last_state = deepcopy(self._state)
-        if last_state is not None:
-            name = last_state.pop("name", None)
-        else:
-            name = None
-
+        name = last_state.pop("name", None) if last_state is not None else None
         if state != last_state or not fod.dataset_exists(name):
             kwargs = self._config or {}
             clips_dataset = focl.make_clips_dataset(
@@ -6131,7 +6013,7 @@ class ToClips(ViewStage):
         ]
 
     @classmethod
-    def _params(self):
+    def _params(cls):
         return [
             {
                 "name": "field_or_expr",
@@ -6264,11 +6146,7 @@ class ToFrames(ViewStage):
         }
 
         last_state = deepcopy(self._state)
-        if last_state is not None:
-            name = last_state.pop("name", None)
-        else:
-            name = None
-
+        name = last_state.pop("name", None) if last_state is not None else None
         if state != last_state or not fod.dataset_exists(name):
             kwargs = self._config or {}
             frames_dataset = fovi.make_frames_dataset(
@@ -6294,7 +6172,7 @@ class ToFrames(ViewStage):
         ]
 
     @classmethod
-    def _params(self):
+    def _params(cls):
         return [
             {
                 "name": "config",
@@ -6324,10 +6202,7 @@ def _parse_sample_ids(arg):
     if isinstance(arg[0], (fos.Sample, fos.SampleView)):
         return [s.id for s in arg], False
 
-    if isinstance(arg[0], (bool, np.bool_)):
-        return arg, True
-
-    return arg, False
+    return (arg, True) if isinstance(arg[0], (bool, np.bool_)) else (arg, False)
 
 
 def _parse_frame_ids(arg):
@@ -6340,15 +6215,14 @@ def _parse_frame_ids(arg):
     if isinstance(arg, foc.SampleCollection):
         return arg.values("frames.id", unwind=True)
 
-    arg = list(arg)
-
-    if not arg:
+    if arg := list(arg):
+        return (
+            [s.id for s in arg]
+            if isinstance(arg[0], (fofr.Frame, fofr.FrameView))
+            else arg
+        )
+    else:
         return []
-
-    if isinstance(arg[0], (fofr.Frame, fofr.FrameView)):
-        return [s.id for s in arg]
-
-    return arg
 
 
 def _get_rng(seed):
@@ -6365,7 +6239,7 @@ def _parse_labels_field(sample_collection, field_path):
     is_frame_field = sample_collection._is_frame_field(field_path)
     is_list_field = issubclass(label_type, fol._LABEL_LIST_FIELDS)
     if is_list_field:
-        path = field_path + "." + label_type._LABEL_LIST_FIELD
+        path = f"{field_path}.{label_type._LABEL_LIST_FIELD}"
     else:
         path = field_path
 
@@ -6378,11 +6252,10 @@ def _parse_labels_list_field(sample_collection, field_path):
 
     if not issubclass(label_type, fol._LABEL_LIST_FIELDS):
         raise ValueError(
-            "Field '%s' must be a labels list type %s; found %s"
-            % (field_path, fol._LABEL_LIST_FIELDS, label_type)
+            f"Field '{field_path}' must be a labels list type {fol._LABEL_LIST_FIELDS}; found {label_type}"
         )
 
-    path = field_path + "." + label_type._LABEL_LIST_FIELD
+    path = f"{field_path}.{label_type._LABEL_LIST_FIELD}"
 
     return path, is_frame_field
 
@@ -6409,29 +6282,27 @@ def _get_label_field_only_matches_expr(
     field, is_frame_field = sample_collection._handle_frame_field(field)
 
     if is_label_list_field:
-        field += "." + label_type._LABEL_LIST_FIELD
+        field += f".{label_type._LABEL_LIST_FIELD}"
 
     if is_frame_field:
-        if is_label_list_field:
-            match_fcn = _get_frames_list_field_only_matches_expr
-        else:
-            match_fcn = _get_frames_field_only_matches_expr
+        match_fcn = (
+            _get_frames_list_field_only_matches_expr
+            if is_label_list_field
+            else _get_frames_field_only_matches_expr
+        )
+    elif is_label_list_field:
+        match_fcn = _get_list_field_only_matches_expr
     else:
-        if is_label_list_field:
-            match_fcn = _get_list_field_only_matches_expr
-        else:
-            match_fcn = _get_field_only_matches_expr
+        match_fcn = _get_field_only_matches_expr
 
     return match_fcn(prefix + field)
 
 
 def _make_omit_empty_labels_pipeline(sample_collection, fields):
-    match_exprs = []
-    for field in fields:
-        match_exprs.append(
-            _get_label_field_only_matches_expr(sample_collection, field)
-        )
-
+    match_exprs = [
+        _get_label_field_only_matches_expr(sample_collection, field)
+        for field in fields
+    ]
     stage = Match(F.any(match_exprs))
     stage.validate(sample_collection)
     return stage.to_mongo(sample_collection)
@@ -6440,14 +6311,12 @@ def _make_omit_empty_labels_pipeline(sample_collection, fields):
 def _make_match_empty_labels_pipeline(
     sample_collection, fields_map, match_empty=False
 ):
-    match_exprs = []
-    for field, new_field in fields_map.items():
-        match_exprs.append(
-            _get_label_field_only_matches_expr(
-                sample_collection, field, new_field=new_field
-            )
+    match_exprs = [
+        _get_label_field_only_matches_expr(
+            sample_collection, field, new_field=new_field
         )
-
+        for field, new_field in fields_map.items()
+    ]
     expr = F.any(match_exprs)
 
     if match_empty:
@@ -6479,20 +6348,16 @@ def _get_default_similarity_run(sample_collection):
             )
 
     elif isinstance(sample_collection, fop.EvaluationPatchesView):
-        gt_field = sample_collection.gt_field
         pred_field = sample_collection.pred_field
 
+        gt_field = sample_collection.gt_field
         brain_keys = sample_collection._get_similarity_keys(
             patches_field=gt_field
         ) + sample_collection._get_similarity_keys(patches_field=pred_field)
 
         if not brain_keys:
             raise ValueError(
-                "Dataset '%s' has no similarity results for its '%s' or '%s' "
-                "fields. You must run "
-                "`fiftyone.brain.compute_similarity(..., patches_field=label_field, ...)` "
-                "in order to sort the patches in this view by similarity"
-                % (sample_collection.dataset_name, gt_field, pred_field)
+                f"Dataset '{sample_collection.dataset_name}' has no similarity results for its '{gt_field}' or '{pred_field}' fields. You must run `fiftyone.brain.compute_similarity(..., patches_field=label_field, ...)` in order to sort the patches in this view by similarity"
             )
     else:
         brain_keys = sample_collection._get_similarity_keys(patches_field=None)
@@ -6507,7 +6372,7 @@ def _get_default_similarity_run(sample_collection):
     brain_key = brain_keys[0]
 
     if len(brain_keys) > 1:
-        msg = "Multiple similarity runs found; using '%s'" % brain_key
+        msg = f"Multiple similarity runs found; using '{brain_key}'"
         warnings.warn(msg)
 
     return brain_key

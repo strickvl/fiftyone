@@ -31,10 +31,7 @@ class _Document(object):
         return super().__dir__() + list(self.field_names)
 
     def __eq__(self, other):
-        if not isinstance(other, self.__class__):
-            return False
-
-        return self._doc == other._doc
+        return self._doc == other._doc if isinstance(other, self.__class__) else False
 
     def __getattr__(self, name):
         try:
@@ -155,9 +152,7 @@ class _Document(object):
         try:
             value = self._doc.get_field(field_name)
         except AttributeError:
-            raise AttributeError(
-                "%s has no field '%s'" % (self.__class__.__name__, field_name)
-            )
+            raise AttributeError(f"{self.__class__.__name__} has no field '{field_name}'")
 
         # @todo `use_db_field` hack
         if isinstance(value, ObjectId):
@@ -179,8 +174,7 @@ class _Document(object):
         """
         if field_name.startswith("_"):
             raise ValueError(
-                "Invalid field name: '%s'. Field names cannot start with '_'"
-                % field_name
+                f"Invalid field name: '{field_name}'. Field names cannot start with '_'"
             )
 
         self._doc.set_field(field_name, value, create=create)
@@ -308,10 +302,9 @@ class _Document(object):
                 field_type = type(curr_value)
 
                 if issubclass(field_type, list):
-                    if value is not None:
-                        curr_value.extend(
-                            v for v in value if v not in curr_value
-                        )
+                    curr_value.extend(
+                        v for v in value if v not in curr_value
+                    )
 
                     continue
 
@@ -411,11 +404,7 @@ class _Document(object):
             fields = {f: f for f in fields}
 
         if omit_fields is not None:
-            if etau.is_str(omit_fields):
-                omit_fields = {omit_fields}
-            else:
-                omit_fields = set(omit_fields)
-
+            omit_fields = {omit_fields} if etau.is_str(omit_fields) else set(omit_fields)
             fields = {k: v for k, v in fields.items() if k not in omit_fields}
 
         return fields
@@ -688,8 +677,7 @@ class DocumentView(_Document):
         ef = self._excluded_fields
         if ef is not None and field_name in ef:
             raise AttributeError(
-                "Field '%s' is excluded from this %s"
-                % (field_name, self.__class__.__name__)
+                f"Field '{field_name}' is excluded from this {self.__class__.__name__}"
             )
 
         value = super().get_field(field_name)
@@ -697,8 +685,7 @@ class DocumentView(_Document):
         sf = self._selected_fields
         if sf is not None and field_name not in sf:
             raise AttributeError(
-                "Field '%s' was not selected on this %s"
-                % (field_name, self.__class__.__name__)
+                f"Field '{field_name}' was not selected on this {self.__class__.__name__}"
             )
 
         return value
@@ -768,5 +755,5 @@ def _merge_labels(labels, new_labels, overwrite=True):
             else:
                 labels.append(l)
     else:
-        existing_ids = set(l.id for l in labels)
+        existing_ids = {l.id for l in labels}
         labels.extend(l for l in new_labels if l.id not in existing_ids)

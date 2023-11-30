@@ -8,6 +8,7 @@ https://www.sphinx-doc.org/en/master/usage/configuration.html
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
+
 import os
 import re
 import sys
@@ -101,7 +102,7 @@ rst_prolog = """
 nbsphinx_requirejs_path = ""
 
 # Adds helpful external links to the built HTML
-ref = "v%s" % foc.VERSION
+ref = f"v{foc.VERSION}"
 nbsphinx_prolog = """
 
 .. raw:: html

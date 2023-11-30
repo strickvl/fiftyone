@@ -104,7 +104,7 @@ def get_implied_field_kwargs(value):
     if isinstance(value, (list, tuple)):
         kwargs = {"ftype": fof.ListField}
 
-        value_types = set(_get_list_value_type(v) for v in value)
+        value_types = {_get_list_value_type(v) for v in value}
 
         if value_types == {fof.IntField, fof.FloatField}:
             kwargs["subfield"] = fof.FloatField
@@ -149,9 +149,7 @@ def get_implied_field_kwargs(value):
     if isinstance(value, ObjectId):
         return {"ftype": fof.ObjectIdField}
 
-    raise TypeError(
-        "Cannot infer an appropriate field type for value '%s'" % value
-    )
+    raise TypeError(f"Cannot infer an appropriate field type for value '{value}'")
 
 
 def _get_list_value_type(value):
@@ -176,10 +174,7 @@ def _get_list_value_type(value):
     if isinstance(value, datetime):
         return fof.DateTimeField
 
-    if isinstance(value, date):
-        return fof.DateField
-
-    return None
+    return fof.DateField if isinstance(value, date) else None
 
 
 numerics = (fof.FloatField, fof.IntField)

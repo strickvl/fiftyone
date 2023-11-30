@@ -61,16 +61,12 @@ class SerializableDocument(object):
 
             if not f.startswith("_"):
                 value = getattr(self, f)
-                if isinstance(value, ObjectId):
-                    d[f] = str(value)
-                else:
-                    d[f] = value
-
+                d[f] = str(value) if isinstance(value, ObjectId) else value
         d.update(kwargs)
 
         doc_name = class_name or self.__class__.__name__
         doc_str = fou.pformat(d)
-        return "<%s: %s>" % (doc_name, doc_str)
+        return f"<{doc_name}: {doc_str}>"
 
     def has_field(self, field_name):
         """Determines whether the document has a field of the given name.
@@ -232,17 +228,13 @@ class MongoEngineBaseDocument(SerializableDocument):
 
     def set_field(self, field_name, value, create=False):
         if not create and not self.has_field(field_name):
-            raise AttributeError(
-                "%s has no field '%s'" % (self.__class__.__name__, field_name)
-            )
+            raise AttributeError(f"{self.__class__.__name__} has no field '{field_name}'")
 
         setattr(self, field_name, value)
 
     def clear_field(self, field_name):
         if not self.has_field(field_name):
-            raise AttributeError(
-                "%s has no field '%s'" % (self.__class__.__name__, field_name)
-            )
+            raise AttributeError(f"{self.__class__.__name__} has no field '{field_name}'")
 
         super().__delattr__(field_name)
 
@@ -277,11 +269,7 @@ class MongoEngineBaseDocument(SerializableDocument):
         # pylint: disable=no-member
         d = self.to_mongo(use_db_field=True)
 
-        if not extended:
-            return d
-
-        # @todo is there a way to avoid bson -> str -> json dict?
-        return json.loads(json_util.dumps(d))
+        return d if not extended else json.loads(json_util.dumps(d))
 
     @classmethod
     def from_dict(cls, d, extended=False):
@@ -318,10 +306,7 @@ class BaseDocument(MongoEngineBaseDocument):
 
     def __eq__(self, other):
         # pylint: disable=no-member
-        if self.id != other.id:
-            return False
-
-        return super().__eq__(other)
+        return False if self.id != other.id else super().__eq__(other)
 
     def _get_repr_fields(self):
         # pylint: disable=no-member
@@ -408,10 +393,9 @@ class Document(BaseDocument, mongoengine.Document):
                 object_id = None
 
                 if "_id" in doc:
-                    raw_object = collection.find_one_and_replace(
+                    if raw_object := collection.find_one_and_replace(
                         {"_id": doc["_id"]}, doc
-                    )
-                    if raw_object:
+                    ):
                         object_id = doc["_id"]
 
                 if not object_id:
@@ -477,9 +461,4 @@ class Document(BaseDocument, mongoengine.Document):
             .raw_result
         )
 
-        if result is not None:
-            updated_existing = result.get("updatedExisting")
-        else:
-            updated_existing = None
-
-        return updated_existing
+        return result.get("updatedExisting") if result is not None else None

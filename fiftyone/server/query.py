@@ -156,10 +156,10 @@ class Dataset(HasCollection):
         doc["frame_fields"] = _flatten_fields([], doc["frame_fields"])
         doc["brain_methods"] = list(doc.get("brain_methods", {}).values())
         doc["evaluations"] = list(doc.get("evaluations", {}).values())
-        doc["skeletons"] = list(
+        doc["skeletons"] = [
             dict(name=name, **data)
             for name, data in doc.get("skeletons", {}).items()
-        )
+        ]
         doc["default_skeletons"] = doc.get("default_skeletons", None)
         return doc
 
@@ -224,10 +224,7 @@ class AppConfig:
 class Query:
     @gql.field
     def colorscale(self) -> t.Optional[t.List[t.List[int]]]:
-        if fo.app_config.colorscale:
-            return fo.app_config.get_colormap()
-
-        return None
+        return fo.app_config.get_colormap() if fo.app_config.colorscale else None
 
     @gql.field
     def config(self) -> AppConfig:
@@ -258,13 +255,11 @@ class Query:
 
     @gql.field
     def teams_submission(self) -> bool:
-        isfile = os.path.isfile(foc.TEAMS_PATH)
-        if isfile:
-            submitted = etas.load_json(foc.TEAMS_PATH)["submitted"]
-        else:
-            submitted = False
-
-        return submitted
+        return (
+            etas.load_json(foc.TEAMS_PATH)["submitted"]
+            if (isfile := os.path.isfile(foc.TEAMS_PATH))
+            else False
+        )
 
     @gql.field
     def uid(self) -> str:

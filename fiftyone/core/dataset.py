@@ -63,10 +63,7 @@ def list_datasets(info=False):
     Returns:
         a list of dataset names or info dicts
     """
-    if info:
-        return _list_dataset_info()
-
-    return _list_datasets()
+    return _list_dataset_info() if info else _list_datasets()
 
 
 def dataset_exists(name):
@@ -129,7 +126,7 @@ def make_unique_dataset_name(root):
     dataset_names = _list_datasets(include_private=True)
 
     if name in dataset_names:
-        name += "_" + _get_random_characters(6)
+        name += f"_{_get_random_characters(6)}"
 
     while name in dataset_names:
         name += _get_random_characters(1)
@@ -285,9 +282,7 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
 
         if d is None:
             field = "ID" if oid is not None else "filepath"
-            raise KeyError(
-                "No sample found with %s '%s'" % (field, id_filepath_slice)
-            )
+            raise KeyError(f"No sample found with {field} '{id_filepath_slice}'")
 
         doc = self._sample_dict_to_doc(d)
         return fos.Sample.from_doc(doc, dataset=self)
@@ -310,7 +305,7 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
             return super().__getattribute__(name)
 
         if getattr(self, "_deleted", False):
-            raise ValueError("Dataset '%s' is deleted" % self.name)
+            raise ValueError(f"Dataset '{self.name}' is deleted")
 
         return super().__getattribute__(name)
 
@@ -350,8 +345,7 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
 
         if media_type not in fom.MEDIA_TYPES:
             raise ValueError(
-                "Invalid media_type '%s'. Supported values are %s"
-                % (media_type, fom.MEDIA_TYPES)
+                f"Invalid media_type '{media_type}'. Supported values are {fom.MEDIA_TYPES}"
             )
 
         if media_type == self._doc.media_type:
@@ -412,7 +406,7 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
             return
 
         if name in list_datasets():
-            raise ValueError("A dataset with name '%s' already exists" % name)
+            raise ValueError(f"A dataset with name '{name}' already exists")
 
         try:
             self._doc.name = name
@@ -724,15 +718,15 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
         Returns:
             a stats dict
         """
-        stats = {}
-
         conn = foo.get_db_conn()
 
         cs = conn.command("collstats", self._sample_collection_name)
         samples_bytes = cs["storageSize"] if compressed else cs["size"]
-        stats["samples_count"] = cs["count"]
-        stats["samples_bytes"] = samples_bytes
-        stats["samples_size"] = etau.to_human_bytes_str(samples_bytes)
+        stats = {
+            "samples_count": cs["count"],
+            "samples_bytes": samples_bytes,
+            "samples_size": etau.to_human_bytes_str(samples_bytes),
+        }
         total_bytes = samples_bytes
 
         if self.media_type == fom.VIDEO:
@@ -772,7 +766,7 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
         try:
             sample_view = self[-1:].first()
         except ValueError:
-            raise ValueError("%s is empty" % self.__class__.__name__)
+            raise ValueError(f"{self.__class__.__name__} is empty")
 
         return fos.Sample.from_doc(sample_view._doc, dataset=self)
 
@@ -1399,11 +1393,9 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
 
         if progress:
             with fou.ProgressBar(total=len(self)) as pb:
-                for sample in pb(self._iter_samples(pipeline)):
-                    yield sample
+                yield from pb(self._iter_samples(pipeline))
         else:
-            for sample in self._iter_samples(pipeline):
-                yield sample
+            yield from self._iter_samples(pipeline)
 
     def _iter_samples(self, pipeline):
         index = 0
@@ -1420,8 +1412,7 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
             # skipping to the last offset
 
             pipeline.append({"$skip": index})
-            for sample in self._iter_samples(pipeline):
-                yield sample
+            yield from self._iter_samples(pipeline)
 
     def add_sample(self, sample, expand_schema=True, validate=True):
         """Adds the given sample to the dataset.
@@ -1612,11 +1603,7 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
         return {k: v for k, v in d.items() if v is not None}
 
     def _bulk_write(self, ops, frames=False, ordered=False):
-        if frames:
-            coll = self._frame_collection
-        else:
-            coll = self._sample_collection
-
+        coll = self._frame_collection if frames else self._sample_collection
         foo.bulk_write(ops, coll, ordered=ordered)
 
         if frames:
@@ -1640,11 +1627,7 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
                 fields = list(fields)
 
         if omit_fields is not None:
-            if etau.is_str(omit_fields):
-                omit_fields = [omit_fields]
-            else:
-                omit_fields = list(omit_fields)
-
+            omit_fields = [omit_fields] if etau.is_str(omit_fields) else list(omit_fields)
         _merge_dataset_doc(
             self,
             doc,
@@ -1760,11 +1743,7 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
                 fields = list(fields)
 
         if omit_fields is not None:
-            if etau.is_str(omit_fields):
-                omit_fields = [omit_fields]
-            else:
-                omit_fields = list(omit_fields)
-
+            omit_fields = [omit_fields] if etau.is_str(omit_fields) else list(omit_fields)
         if isinstance(samples, foc.SampleCollection):
             _merge_dataset_doc(
                 self,
@@ -1955,7 +1934,7 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
 
             ops = []
             if issubclass(label_type, fol._LABEL_LIST_FIELDS):
-                array_field = field + "." + label_type._LABEL_LIST_FIELD
+                array_field = f"{field}.{label_type._LABEL_LIST_FIELD}"
 
                 if view_ids is not None:
                     ops.append(
@@ -1993,23 +1972,18 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
                 if view_ids is not None:
                     ops.append(
                         UpdateMany(
-                            {field + "._id": {"$in": view_ids}},
+                            {f"{field}._id": {"$in": view_ids}},
                             {"$set": {field: None}},
                         )
                     )
 
                 if ids is not None:
-                    ops.append(
-                        UpdateMany(
-                            {field + "._id": {"$in": ids}},
-                            {"$set": {field: None}},
-                        )
-                    )
+                    ops.append(UpdateMany({f"{field}._id": {"$in": ids}}, {"$set": {field: None}}))
 
                 if tags is not None:
                     ops.append(
                         UpdateMany(
-                            {field + ".tags": {"$elemMatch": {"$in": tags}}},
+                            {f"{field}.tags": {"$elemMatch": {"$in": tags}}},
                             {"$set": {field: None}},
                         )
                     )
@@ -2056,27 +2030,21 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
                     )
 
                 if issubclass(label_type, fol._LABEL_LIST_FIELDS):
-                    array_field = field + "." + label_type._LABEL_LIST_FIELD
+                    array_field = f"{field}.{label_type._LABEL_LIST_FIELD}"
 
-                    for (
-                        (sample_id, frame_number),
-                        label_ids,
-                    ) in _labels_map.items():
-                        frame_ops.append(
-                            UpdateOne(
-                                {
-                                    "_sample_id": ObjectId(sample_id),
-                                    "frame_number": frame_number,
-                                },
-                                {
-                                    "$pull": {
-                                        array_field: {
-                                            "_id": {"$in": label_ids}
-                                        }
-                                    }
-                                },
-                            )
+                    frame_ops.extend(
+                        UpdateOne(
+                            {
+                                "_sample_id": ObjectId(sample_id),
+                                "frame_number": frame_number,
+                            },
+                            {"$pull": {array_field: {"_id": {"$in": label_ids}}}},
                         )
+                        for (
+                            sample_id,
+                            frame_number,
+                        ), label_ids in _labels_map.items()
+                    )
                 else:
                     for (
                         (sample_id, frame_number),
@@ -2087,17 +2055,17 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
                         # since `sample_id` should uniquely define the label to
                         # delete, but we still include `label_id` in the query
                         # just to be safe
-                        for label_id in label_ids:
-                            frame_ops.append(
-                                UpdateOne(
-                                    {
-                                        "_sample_id": ObjectId(sample_id),
-                                        "frame_number": frame_number,
-                                        field + "._id": label_id,
-                                    },
-                                    {"$set": {field: None}},
-                                )
+                        frame_ops.extend(
+                            UpdateOne(
+                                {
+                                    "_sample_id": ObjectId(sample_id),
+                                    "frame_number": frame_number,
+                                    f"{field}._id": label_id,
+                                },
+                                {"$set": {field: None}},
                             )
+                            for label_id in label_ids
+                        )
             else:
                 # Partition by sample ID
                 _labels_map = defaultdict(list)
@@ -2105,21 +2073,15 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
                     _labels_map[l["sample_id"]].append(ObjectId(l["label_id"]))
 
                 if issubclass(label_type, fol._LABEL_LIST_FIELDS):
-                    array_field = field + "." + label_type._LABEL_LIST_FIELD
+                    array_field = f"{field}.{label_type._LABEL_LIST_FIELD}"
 
-                    for sample_id, label_ids in _labels_map.items():
-                        sample_ops.append(
-                            UpdateOne(
-                                {"_id": ObjectId(sample_id)},
-                                {
-                                    "$pull": {
-                                        array_field: {
-                                            "_id": {"$in": label_ids}
-                                        }
-                                    }
-                                },
-                            )
+                    sample_ops.extend(
+                        UpdateOne(
+                            {"_id": ObjectId(sample_id)},
+                            {"$pull": {array_field: {"_id": {"$in": label_ids}}}},
                         )
+                        for sample_id, label_ids in _labels_map.items()
+                    )
                 else:
                     for sample_id, label_ids in _labels_map.items():
                         # If the data is well-formed, `label_ids` should have
@@ -2127,17 +2089,16 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
                         # since `sample_id` and `frame_number` should uniquely
                         # define the label to delete, but we still include
                         # `label_id` in the query just to be safe
-                        for label_id in label_ids:
-                            sample_ops.append(
-                                UpdateOne(
-                                    {
-                                        "_id": ObjectId(sample_id),
-                                        field + "._id": label_id,
-                                    },
-                                    {"$set": {field: None}},
-                                )
+                        sample_ops.extend(
+                            UpdateOne(
+                                {
+                                    "_id": ObjectId(sample_id),
+                                    f"{field}._id": label_id,
+                                },
+                                {"$set": {field: None}},
                             )
-
+                            for label_id in label_ids
+                        )
         if sample_ops:
             foo.bulk_write(sample_ops, self._sample_collection)
 
@@ -2230,11 +2191,7 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
         if name is None:
             name = get_default_dataset_name()
 
-        if view is not None:
-            sample_collection = view
-        else:
-            sample_collection = self
-
+        sample_collection = view if view is not None else self
         return _clone_dataset_or_view(sample_collection, name)
 
     def clear(self):
@@ -2262,24 +2219,18 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
         self._clear_frames(sample_ids=sample_ids)
 
     def _keep(self, view=None, sample_ids=None):
-        if view is not None:
-            clear_view = self.exclude(view)
-        else:
-            clear_view = self.exclude(sample_ids)
-
+        clear_view = self.exclude(sample_ids) if view is None else self.exclude(view)
         self._clear(view=clear_view)
 
     def _keep_fields(self, view=None):
         if view is None:
             return
 
-        del_sample_fields = view._get_missing_fields()
-        if del_sample_fields:
+        if del_sample_fields := view._get_missing_fields():
             self.delete_sample_fields(del_sample_fields)
 
         if self.media_type == fom.VIDEO:
-            del_frame_fields = view._get_missing_fields(frames=True)
-            if del_frame_fields:
+            if del_frame_fields := view._get_missing_fields(frames=True):
                 self.delete_frame_fields(del_frame_fields)
 
     def clear_frames(self):
@@ -2354,17 +2305,15 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
 
         sample_ids, frame_numbers = view.values(["id", "frames.frame_number"])
 
-        ops = []
-        for sample_id, fns in zip(sample_ids, frame_numbers):
-            ops.append(
-                DeleteMany(
-                    {
-                        "_sample_id": ObjectId(sample_id),
-                        "frame_number": {"$not": {"$in": fns}},
-                    }
-                )
+        ops = [
+            DeleteMany(
+                {
+                    "_sample_id": ObjectId(sample_id),
+                    "frame_number": {"$not": {"$in": fns}},
+                }
             )
-
+            for sample_id, fns in zip(sample_ids, frame_numbers)
+        ]
         if not ops:
             return
 
@@ -2387,11 +2336,7 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
         if self.media_type != fom.VIDEO:
             return
 
-        if view is not None:
-            sample_collection = view
-        else:
-            sample_collection = self
-
+        sample_collection = view if view is not None else self
         sample_collection.compute_metadata()
 
         pipeline = sample_collection._pipeline()
@@ -4318,11 +4263,7 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
         if frames_only:
             attach_frames = True
 
-        if attach_frames:
-            _pipeline = self._frames_lookup_pipeline()
-        else:
-            _pipeline = []
-
+        _pipeline = self._frames_lookup_pipeline() if attach_frames else []
         if pipeline is not None:
             _pipeline.extend(pipeline)
 
@@ -4459,8 +4400,7 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
                 _curr_field_str = str(curr_fields[field_name])
                 if _new_field_str != _curr_field_str:
                     raise ValueError(
-                        "Existing field %s=%s does not match new field type %s"
-                        % (field_name, _curr_field_str, _new_field_str)
+                        f"Existing field {field_name}={_curr_field_str} does not match new field type {_new_field_str}"
                     )
             else:
                 # Add new field
@@ -4533,8 +4473,7 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
     def _validate_media_type(self, sample):
         if self.media_type != sample.media_type:
             raise fom.MediaTypeError(
-                "Sample media type '%s' does not match dataset media type '%s'"
-                % (sample.media_type, self.media_type)
+                f"Sample media type '{sample.media_type}' does not match dataset media type '{self.media_type}'"
             )
 
     def _sample_dict_to_doc(self, d):
@@ -4567,20 +4506,17 @@ class Dataset(foc.SampleCollection, metaclass=DatasetSingleton):
                 if field is None:
                     if value is not None:
                         non_existent_fields.add(field_name)
-                else:
-                    if value is not None or not field.null:
-                        try:
-                            field.validate(value)
-                        except moe.ValidationError as e:
-                            raise moe.ValidationError(
-                                "Invalid value for field '%s'. Reason: %s"
-                                % (field_name, str(e))
-                            )
+                elif value is not None or not field.null:
+                    try:
+                        field.validate(value)
+                    except moe.ValidationError as e:
+                        raise moe.ValidationError(
+                            f"Invalid value for field '{field_name}'. Reason: {str(e)}"
+                        )
 
             if non_existent_fields:
                 raise ValueError(
-                    "Fields %s do not exist on dataset '%s'"
-                    % (non_existent_fields, self.name)
+                    f"Fields {non_existent_fields} do not exist on dataset '{self.name}'"
                 )
 
     def reload(self):
@@ -4787,7 +4723,7 @@ def _make_sample_collection_name(patches=False, frames=False, clips=False):
 
 
 def _make_frame_collection_name(sample_collection_name):
-    return "frames." + sample_collection_name
+    return f"frames.{sample_collection_name}"
 
 
 def _create_sample_document_cls(sample_collection_name, field_docs=None):
@@ -4832,8 +4768,7 @@ def _get_dataset_doc(collection_name, frames=False):
     if doc is None:
         dtype = "sample" if not frames else "frame"
         raise ValueError(
-            "No dataset found with %s collection name '%s'"
-            % (dtype, collection_name)
+            f"No dataset found with {dtype} collection name '{collection_name}'"
         )
 
     dataset = load_dataset(doc["name"])
@@ -4850,11 +4785,7 @@ def _load_clips_source_dataset(frame_collection_name):
     conn = foo.get_db_conn()
     doc = conn.datasets.find_one(query, {"name": 1})
 
-    if doc is None:
-        # The source dataset must have been deleted...
-        return None
-
-    return load_dataset(doc["name"])
+    return None if doc is None else load_dataset(doc["name"])
 
 
 def _load_dataset(name, virtual=False):
@@ -4865,7 +4796,7 @@ def _load_dataset(name, virtual=False):
         # pylint: disable=no-member
         dataset_doc = foo.DatasetDocument.objects.get(name=name)
     except moe.DoesNotExist:
-        raise ValueError("Dataset '%s' not found" % name)
+        raise ValueError(f"Dataset '{name}' not found")
 
     sample_collection_name = dataset_doc.sample_collection_name
     sample_doc_cls = _create_sample_document_cls(
@@ -4945,7 +4876,7 @@ def _delete_dataset_doc(dataset_doc):
 
 def _clone_dataset_or_view(dataset_or_view, name):
     if dataset_exists(name):
-        raise ValueError("Dataset '%s' already exists" % name)
+        raise ValueError(f"Dataset '{name}' already exists")
 
     if isinstance(dataset_or_view, fov.DatasetView):
         dataset = dataset_or_view._dataset
@@ -5374,12 +5305,12 @@ def _ensure_index(sample_collection, db_field, unique=False):
     # db_field -> (name, unique)
     index_map = _get_single_index_map(coll)
 
-    new = False
     dropped = False
 
     if db_field in index_map:
         name, _unique = index_map[db_field]
         if _unique or (_unique == unique):
+            new = False
             # Satisfactory index already exists
             return new, dropped
 
@@ -5388,9 +5319,7 @@ def _ensure_index(sample_collection, db_field, unique=False):
         dropped = True
 
     coll.create_index(db_field, unique=True)
-    new = True
-
-    return new, dropped
+    return True, dropped
 
 
 def _cleanup_index(sample_collection, db_field, new_index, dropped_index):
@@ -5437,14 +5366,14 @@ def _merge_samples_python(
             pass
 
     if key_fcn is None:
-        id_map = {k: v for k, v in zip(*dataset.values([key_field, "_id"]))}
+        id_map = dict(zip(*dataset.values([key_field, "_id"])))
         key_fcn = lambda sample: sample[key_field]
     else:
-        id_map = {}
         logger.info("Indexing dataset...")
-        for sample in dataset.iter_samples(progress=True):
-            id_map[key_fcn(sample)] = sample._id
-
+        id_map = {
+            key_fcn(sample): sample._id
+            for sample in dataset.iter_samples(progress=True)
+        }
     _samples = _make_merge_samples_generator(
         dataset,
         samples,

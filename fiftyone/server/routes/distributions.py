@@ -43,7 +43,7 @@ class Distributions(HTTPEndpoint):
                 path = _label_filter(field)
 
                 if path is not None:
-                    path = "%s.tags" % path
+                    path = f"{path}.tags"
 
                 return path
 
@@ -56,7 +56,7 @@ class Distributions(HTTPEndpoint):
                 path = _label_filter(field)
 
                 if path is not None:
-                    path = "%s.label" % path
+                    path = f"{path}.label"
 
                 return path
 
@@ -118,10 +118,7 @@ def _label_filter(field):
     ):
         path = field.name
         if issubclass(field.document_type, fol._HasLabelList):
-            path = "%s.%s" % (
-                path,
-                field.document_type._LABEL_LIST_FIELD,
-            )
+            path = f"{path}.{field.document_type._LABEL_LIST_FIELD}"
 
     return path
 
@@ -146,16 +143,14 @@ def _parse_histogram_values(result, field):
         ],
         key=lambda i: i["key"],
     )
-    if (
-        fosu.meets_type(field, fof.IntField)
-        and len(data) == _DEFAULT_NUM_HISTOGRAM_BINS
-    ):
-        for bin_ in data:
-            bin_["edges"] = [math.ceil(e) for e in bin_["edges"]]
-            bin_["key"] = math.ceil(bin_["key"])
-    elif fosu.meets_type(field, fof.IntField):
-        for bin_ in data:
-            del bin_["edges"]
+    if fosu.meets_type(field, fof.IntField):
+        if len(data) == _DEFAULT_NUM_HISTOGRAM_BINS:
+            for bin_ in data:
+                bin_["edges"] = [math.ceil(e) for e in bin_["edges"]]
+                bin_["key"] = math.ceil(bin_["key"])
+        else:
+            for bin_ in data:
+                del bin_["edges"]
 
     if other > 0:
         data.append({"key": "None", "count": other})
@@ -203,11 +198,8 @@ async def _gather_results(aggs, fields, paths, view, ticks=None):
         if type(agg) == foa.HistogramValues:
             result_ticks = ticks.pop(0)
             if result_ticks is None:
-                result_ticks = []
                 step = max(len(data) // 4, 1)
-                for i in range(0, len(data), step):
-                    result_ticks.append(data[i]["key"])
-
+                result_ticks = [data[i]["key"] for i in range(0, len(data), step)]
                 if result[2] > 0 and len(data) and data[-1]["key"] != "None":
                     result_ticks.append("None")
 
@@ -242,7 +234,7 @@ def _count_values(f, view):
             paths.append(prefix + path)
             aggregations.append(
                 foa.CountValues(
-                    "%s%s" % (prefix, path), _first=LIST_LIMIT, _asc=False
+                    f"{prefix}{path}", _first=LIST_LIMIT, _asc=False
                 )
             )
 
@@ -264,7 +256,7 @@ async def _numeric_histograms(view, schema, prefix=""):
             continue
 
         if fosu.meets_type(field, numerics):
-            paths.append("%s%s" % (prefix, name))
+            paths.append(f"{prefix}{name}")
             fields.append(field)
 
     aggs = _numeric_bounds(paths)

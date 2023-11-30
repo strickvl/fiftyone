@@ -197,33 +197,21 @@ def _render_model_content(template, model_name):
     header_name = model_name
 
     size_str = etau.to_human_bytes_str(zoo_model.size_bytes, decimals=2)
-    size_str = size_str[:-2] + " " + size_str[-2:]  # 123.45 MB, not 123.45MB
+    size_str = f"{size_str[:-2]} {size_str[-2:]}"
 
-    if "embeddings" in zoo_model.tags:
-        exposes_embeddings = "yes"
-    else:
-        exposes_embeddings = "no"
-
+    exposes_embeddings = "yes" if "embeddings" in zoo_model.tags else "no"
     tags_str = ", ".join(zoo_model.tags)
 
     base_packages = zoo_model.requirements.packages
     if base_packages is not None:
         base_packages = ", ".join(base_packages)
 
-    if zoo_model.supports_cpu:
-        supports_cpu = "yes"
-    else:
-        supports_cpu = "no"
-
+    supports_cpu = "yes" if zoo_model.supports_cpu else "no"
     cpu_packages = zoo_model.requirements.cpu_packages
     if cpu_packages is not None:
         cpu_packages = ", ".join(cpu_packages)
 
-    if zoo_model.supports_gpu:
-        supports_gpu = "yes"
-    else:
-        supports_gpu = "no"
-
+    supports_gpu = "yes" if zoo_model.supports_gpu else "no"
     gpu_packages = zoo_model.requirements.gpu_packages
     if gpu_packages is not None:
         gpu_packages = ", ".join(gpu_packages)
@@ -265,7 +253,7 @@ def _render_card_model_content(template, model_name):
 
     tags = ",".join(tags)
 
-    link = "models.html#%s" % zoo_model.name
+    link = f"models.html#{zoo_model.name}"
 
     description = zoo_model.description
 
@@ -274,11 +262,9 @@ def _render_card_model_content(template, model_name):
     description = description.replace("`", '"')
     description = re.sub(" <.*>", "", description)
 
-    content = template.render(
+    return template.render(
         header=zoo_model.name, description=description, link=link, tags=tags
     )
-
-    return content
 
 
 def _generate_section(template, all_models, print_source, header_name):
@@ -315,8 +301,7 @@ def main():
 
     # Generate page content
 
-    content = [_HEADER]
-    content.append(_CARD_SECTION_START)
+    content = [_HEADER, _CARD_SECTION_START]
     for model_name in foz.list_zoo_models():
         card_content = _render_card_model_content(
             card_model_template, model_name
@@ -336,7 +321,7 @@ def main():
     docs_dir = "/".join(os.path.realpath(__file__).split("/")[:-2])
     outpath = os.path.join(docs_dir, "source/user_guide/model_zoo/models.rst")
 
-    print("Writing '%s'" % outpath)
+    print(f"Writing '{outpath}'")
     etau.write_file("\n".join(content), outpath)
 
 

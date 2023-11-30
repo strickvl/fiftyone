@@ -77,9 +77,7 @@ def build_label_tag_aggregations(view: foc.SampleCollection):
 
     if view.media_type == fom.VIDEO:
         for field_name, field in view.get_frame_field_schema().items():
-            _add_to_label_tags_aggregations(
-                "frames." + field_name, field, counts, tags
-            )
+            _add_to_label_tags_aggregations(f"frames.{field_name}", field, counts, tags)
 
     return counts, tags
 
@@ -93,14 +91,11 @@ def _add_to_label_tags_aggregations(path: str, field: fof.Field, counts, tags):
 
     path = _expand_labels_path(path, field)
     counts.append(foa.Count(path))
-    tags.append(foa.CountValues("%s.tags" % path))
+    tags.append(foa.CountValues(f"{path}.tags"))
 
 
 def _expand_labels_path(root, label_field):
     if issubclass(label_field.document_type, fol._HasLabelList):
-        return "%s.%s" % (
-            root,
-            label_field.document_type._LABEL_LIST_FIELD,
-        )
+        return f"{root}.{label_field.document_type._LABEL_LIST_FIELD}"
 
     return root

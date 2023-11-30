@@ -321,11 +321,7 @@ class Session(foc.HasClient):
         super().__init__(self._port, self._address)
 
         if desktop is None:
-            if self._context == focx._NONE:
-                desktop = fo.config.desktop_app
-            else:
-                desktop = False
-
+            desktop = fo.config.desktop_app if self._context == focx._NONE else False
         self._desktop = desktop
         self._start_time = self._get_time()
 
@@ -353,13 +349,9 @@ class Session(foc.HasClient):
             return
 
         if self._desktop:
-            if (
-                self._context == focx._COLAB
-                or self._context == focx._DATABRICKS
-            ):
+            if self._context in [focx._COLAB, focx._DATABRICKS]:
                 raise ValueError(
-                    "Cannot open a Desktop App instance from a %s notebook"
-                    % self._context
+                    f"Cannot open a Desktop App instance from a {self._context} notebook"
                 )
 
             if not focn.DEV_INSTALL:
@@ -377,26 +369,22 @@ class Session(foc.HasClient):
     def _validate(self, dataset, view, plots, config):
         if dataset is not None and not isinstance(dataset, fod.Dataset):
             raise ValueError(
-                "`dataset` must be a %s or None; found %s"
-                % (fod.Dataset, type(dataset))
+                f"`dataset` must be a {fod.Dataset} or None; found {type(dataset)}"
             )
 
         if view is not None and not isinstance(view, fov.DatasetView):
             raise ValueError(
-                "`view` must be a %s or None; found %s"
-                % (fov.DatasetView, type(view))
+                f"`view` must be a {fov.DatasetView} or None; found {type(view)}"
             )
 
         if plots is not None and not isinstance(plots, fop.PlotManager):
             raise ValueError(
-                "`plots` must be a %s or None; found %s"
-                % (fop.PlotManager, type(plots))
+                f"`plots` must be a {fop.PlotManager} or None; found {type(plots)}"
             )
 
         if config is not None and not isinstance(config, AppConfig):
             raise ValueError(
-                "`config` must be a %s or None; found %s"
-                % (AppConfig, type(config))
+                f"`config` must be a {AppConfig} or None; found {type(config)}"
             )
 
     def __repr__(self):
@@ -459,7 +447,7 @@ class Session(foc.HasClient):
             url = eval_js(
                 "google.colab.kernel.proxyPort(%d)" % self.server_port
             )
-            return "%s?polling=true&colab=true" % url
+            return f"{url}?polling=true&colab=true"
 
         if self._context == focx._DATABRICKS:
             return f"{_get_databricks_proxy_url(self.server_port)}?polling=true&databricks=true"
@@ -494,18 +482,14 @@ class Session(foc.HasClient):
 
         if not isinstance(config, AppConfig):
             raise ValueError(
-                "`Session.config` must be a %s or None; found %s"
-                % (AppConfig, type(config))
+                f"`Session.config` must be a {AppConfig} or None; found {type(config)}"
             )
 
         self.state.config = config
 
     @property
     def _collection(self):
-        if self.view is not None:
-            return self.view
-
-        return self.dataset
+        return self.view if self.view is not None else self.dataset
 
     @property
     def dataset(self):
@@ -517,8 +501,7 @@ class Session(foc.HasClient):
     def dataset(self, dataset):
         if dataset is not None and not isinstance(dataset, fod.Dataset):
             raise ValueError(
-                "`Session.dataset` must be a %s or None; found %s"
-                % (fod.Dataset, type(dataset))
+                f"`Session.dataset` must be a {fod.Dataset} or None; found {type(dataset)}"
             )
 
         if dataset is not None:
@@ -548,8 +531,7 @@ class Session(foc.HasClient):
     def view(self, view):
         if view is not None and not isinstance(view, fov.DatasetView):
             raise ValueError(
-                "`Session.view` must be a %s or None; found %s"
-                % (fov.DatasetView, type(view))
+                f"`Session.view` must be a {fov.DatasetView} or None; found {type(view)}"
             )
 
         self.state.view = view
@@ -584,8 +566,7 @@ class Session(foc.HasClient):
     def plots(self, plots):
         if plots is not None and not isinstance(plots, fop.PlotManager):
             raise ValueError(
-                "`Session.plots` must be a %s or None; found %s"
-                % (fop.PlotManager, type(plots))
+                f"`Session.plots` must be a {fop.PlotManager} or None; found {type(plots)}"
             )
 
         if plots is None:
@@ -766,8 +747,8 @@ class Session(foc.HasClient):
             elements = [
                 ("Dataset:", self.dataset.name),
                 ("Media type:", self.dataset.media_type),
-                ("Num %s:" % etype, len(self._collection)),
-                ("Selected %s:" % etype, len(self.selected)),
+                (f"Num {etype}:", len(self._collection)),
+                (f"Selected {etype}:", len(self.selected)),
                 ("Selected labels:", len(self.selected_labels)),
             ]
         else:
@@ -1110,7 +1091,7 @@ def _display_colab(session, handle, uuid, port, address, height, update=False):
     def capture(img, width):
         idx = session._colab_img_counter[uuid]
         session._colab_img_counter[uuid] = idx + 1
-        with output.redirect_to_element("#focontainer-%s" % uuid):
+        with output.redirect_to_element(f"#focontainer-{uuid}"):
             # pylint: disable=undefined-variable,bad-format-character
             display(
                 IPython.display.HTML(
@@ -1127,7 +1108,7 @@ def _display_colab(session, handle, uuid, port, address, height, update=False):
                 )
             )
 
-    output.register_callback("fiftyone.%s" % uuid.replace("-", "_"), capture)
+    output.register_callback(f'fiftyone.{uuid.replace("-", "_")}', capture)
 
 
 def _display_databricks(

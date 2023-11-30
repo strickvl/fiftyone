@@ -147,8 +147,7 @@ class HasClient(object):
                 value, self._HC_ATTR_TYPE
             ):
                 raise ValueError(
-                    "Client expected type %s, but got type %s"
-                    % (self._HC_ATTR_TYPE, type(value))
+                    f"Client expected type {self._HC_ATTR_TYPE}, but got type {type(value)}"
                 )
 
             if self._client is None and not self._initial_connection:

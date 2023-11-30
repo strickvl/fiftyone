@@ -83,9 +83,7 @@ class Media(HTTPEndpoint):
 
             content_ranges = content_range.split("=")[-1]
 
-            range_start, range_end, *_ = map(
-                str.strip, (content_ranges + "-").split("-")
-            )
+            range_start, range_end, *_ = map(str.strip, f"{content_ranges}-".split("-"))
 
             start, end = (
                 int(range_start) if range_start else 0,

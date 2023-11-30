@@ -25,8 +25,7 @@ def validate_image_sample(sample):
     """
     if sample.media_type != fom.IMAGE:
         raise ValueError(
-            "Expected media type '%s' but found '%s' for filepath '%s'"
-            % (fom.IMAGE, sample.media_type, sample.filepath)
+            f"Expected media type '{fom.IMAGE}' but found '{sample.media_type}' for filepath '{sample.filepath}'"
         )
 
     if isinstance(sample, fov.FrameView):
@@ -44,8 +43,7 @@ def validate_video_sample(sample):
     """
     if sample.media_type != fom.VIDEO:
         raise ValueError(
-            "Expected media type '%s' but found '%s' for filepath '%s'"
-            % (fom.VIDEO, sample.media_type, sample.filepath)
+            f"Expected media type '{fom.VIDEO}' but found '{sample.media_type}' for filepath '{sample.filepath}'"
         )
 
 
@@ -62,8 +60,7 @@ def validate_collection(sample_collection):
     """
     if not isinstance(sample_collection, foc.SampleCollection):
         raise ValueError(
-            "Expected samples to be a %s; found %s"
-            % (foc.SampleCollection, sample_collection.__class__)
+            f"Expected samples to be a {foc.SampleCollection}; found {sample_collection.__class__}"
         )
 
 
@@ -82,8 +79,7 @@ def validate_image_collection(sample_collection):
 
     if sample_collection.media_type != fom.IMAGE:
         raise ValueError(
-            "Expected collection to have media type %s; found %s"
-            % (fom.IMAGE, sample_collection.media_type)
+            f"Expected collection to have media type {fom.IMAGE}; found {sample_collection.media_type}"
         )
 
     if sample_collection._dataset._is_frames:
@@ -110,8 +106,7 @@ def validate_video_collection(sample_collection):
 
     if sample_collection.media_type != fom.VIDEO:
         raise ValueError(
-            "Expected collection to have media type %s; found %s"
-            % (fom.VIDEO, sample_collection.media_type)
+            f"Expected collection to have media type {fom.VIDEO}; found {sample_collection.media_type}"
         )
 
 
@@ -196,8 +191,7 @@ def _validate_fields(
         if field_name not in schema:
             ftype = "frame field" if frames else "sample field"
             raise ValueError(
-                "%s has no %s '%s'"
-                % (sample_collection.__class__.__name__, ftype, field_name)
+                f"{sample_collection.__class__.__name__} has no {ftype} '{field_name}'"
             )
 
         field = schema[field_name]
@@ -210,8 +204,7 @@ def _validate_fields(
         if label_type not in allowed_label_types:
             ftype = "Frame field" if frames else "Sample field"
             raise ValueError(
-                "%s '%s' is not a %s instance; found %s"
-                % (ftype, field_name, allowed_label_types, label_type)
+                f"{ftype} '{field_name}' is not a {allowed_label_types} instance; found {label_type}"
             )
 
         label_types[field_name] = label_type
@@ -219,8 +212,7 @@ def _validate_fields(
     if same_type and len(set(label_types.values())) > 1:
         ftype = "Frame fields" if frames else "Sample fields"
         raise ValueError(
-            "%s %s must have the same type; found %s"
-            % (ftype, field_names, label_types)
+            f"{ftype} {field_names} must have the same type; found {label_types}"
         )
 
 
@@ -245,21 +237,16 @@ def get_field(sample, field_name, allowed_types=None, allow_none=True):
     try:
         value = sample[field_name]
     except KeyError:
-        raise ValueError(
-            "Sample '%s' has no field '%s'" % (sample.id, field_name)
-        )
+        raise ValueError(f"Sample '{sample.id}' has no field '{field_name}'")
 
     if not allow_none and value is None:
-        raise ValueError(
-            "Sample '%s' field '%s' is None" % (sample.id, field_name)
-        )
+        raise ValueError(f"Sample '{sample.id}' field '{field_name}' is None")
 
     if allowed_types is not None:
         field_type = type(value)
         if field_type not in allowed_types:
             raise ValueError(
-                "Sample '%s' field '%s' is not a %s instance; found %s"
-                % (sample.id, field_name, allowed_types, field_type)
+                f"Sample '{sample.id}' field '{field_name}' is not a {allowed_types} instance; found {field_type}"
             )
 
     return value
@@ -303,8 +290,7 @@ def get_fields(
 
     if same_type and len(set(label_types.values())) > 1:
         raise ValueError(
-            "Sample '%s' fields %s must have the same type; found %s"
-            % (sample.id, field_names, label_types)
+            f"Sample '{sample.id}' fields {field_names} must have the same type; found {label_types}"
         )
 
     return tuple(values)

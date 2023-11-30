@@ -145,7 +145,7 @@ class ClipsView(fov.DatasetView):
 
     @property
     def name(self):
-        return self.dataset_name + "-clips"
+        return f"{self.dataset_name}-clips"
 
     def _get_default_sample_fields(
         self, include_private=False, use_db_fields=False
@@ -168,11 +168,7 @@ class ClipsView(fov.DatasetView):
     def set_values(self, field_name, *args, **kwargs):
         # The `set_values()` operation could change the contents of this view,
         # so we first record the sample IDs that need to be synced
-        if self._stages:
-            ids = self.values("id")
-        else:
-            ids = None
-
+        ids = self.values("id") if self._stages else None
         super().set_values(field_name, *args, **kwargs)
 
         field = field_name.split(".", 1)[0]
@@ -280,11 +276,7 @@ class ClipsView(fov.DatasetView):
 
         # Sync label + support to underlying TemporalDetection
 
-        if ids is not None:
-            sync_view = self._clips_dataset.select(ids)
-        else:
-            sync_view = self
-
+        sync_view = self._clips_dataset.select(ids) if ids is not None else self
         update_ids = []
         update_docs = []
         del_ids = set()
@@ -327,8 +319,7 @@ class ClipsView(fov.DatasetView):
         schema = self.get_frame_field_schema()
         src_schema = self._source_collection.get_frame_field_schema()
 
-        del_fields = set(src_schema.keys()) - set(schema.keys())
-        if del_fields:
+        if del_fields := set(src_schema.keys()) - set(schema.keys()):
             prefix = self._source_collection._FRAMES_PREFIX
             _del_fields = [prefix + f for f in del_fields]
             self._source_collection.exclude_fields(_del_fields).keep_fields()
@@ -417,15 +408,11 @@ def make_clips_dataset(
 
     if etau.is_str(field_or_expr):
         if sample_collection._is_frame_field(field_or_expr):
-            if trajectories:
-                clips_type = "trajectories"
-            else:
-                clips_type = "expression"
+            clips_type = "trajectories" if trajectories else "expression"
+        elif _is_frame_support_field(sample_collection, field_or_expr):
+            clips_type = "support"
         else:
-            if _is_frame_support_field(sample_collection, field_or_expr):
-                clips_type = "support"
-            else:
-                clips_type = "detections"
+            clips_type = "detections"
     elif isinstance(field_or_expr, (foe.ViewExpression, dict)):
         clips_type = "expression"
     else:
@@ -451,7 +438,7 @@ def make_clips_dataset(
             embedded_doc_type=fol.Classification,
         )
 
-    if clips_type == "trajectories":
+    elif clips_type == "trajectories":
         field_or_expr, _ = sample_collection._handle_frame_field(field_or_expr)
         dataset.add_sample_field(
             field_or_expr,
@@ -473,22 +460,8 @@ def make_clips_dataset(
 
     _make_pretty_summary(dataset)
 
-    if clips_type == "support":
-        _write_support_clips(
-            dataset,
-            sample_collection,
-            field_or_expr,
-            other_fields=other_fields,
-        )
-    elif clips_type == "detections":
+    if clips_type == "detections":
         _write_temporal_detection_clips(
-            dataset,
-            sample_collection,
-            field_or_expr,
-            other_fields=other_fields,
-        )
-    elif clips_type == "trajectories":
-        _write_trajectories(
             dataset,
             sample_collection,
             field_or_expr,
@@ -502,6 +475,20 @@ def make_clips_dataset(
             other_fields=other_fields,
             tol=tol,
             min_len=min_len,
+        )
+    elif clips_type == "support":
+        _write_support_clips(
+            dataset,
+            sample_collection,
+            field_or_expr,
+            other_fields=other_fields,
+        )
+    elif clips_type == "trajectories":
+        _write_trajectories(
+            dataset,
+            sample_collection,
+            field_or_expr,
+            other_fields=other_fields,
         )
     else:
         _write_manual_clips(
@@ -542,13 +529,13 @@ def _write_support_clips(
 
     project = {
         "_id": False,
-        "_sample_id": "$" + id_field,
+        "_sample_id": f"${id_field}",
         "_media_type": True,
         "_rand": True,
         "filepath": True,
         "metadata": True,
         "tags": True,
-        "support": "$" + field.name,
+        "support": f"${field.name}",
     }
 
     if other_fields:
@@ -576,15 +563,14 @@ def _write_temporal_detection_clips(
     supported_types = (fol.TemporalDetection, fol.TemporalDetections)
     if label_type not in supported_types:
         raise ValueError(
-            "Field '%s' must be a %s type; found %s"
-            % (field, supported_types, label_type)
+            f"Field '{field}' must be a {supported_types} type; found {label_type}"
         )
 
     id_field = "_id" if not src_dataset._is_clips else "_sample_id"
 
     project = {
         "_id": False,
-        "_sample_id": "$" + id_field,
+        "_sample_id": f"${id_field}",
         "_media_type": True,
         "_rand": True,
         "filepath": True,
@@ -601,19 +587,19 @@ def _write_temporal_detection_clips(
     pipeline.append({"$project": project})
 
     if label_type is fol.TemporalDetections:
-        list_path = field + "." + label_type._LABEL_LIST_FIELD
+        list_path = f"{field}.{label_type._LABEL_LIST_FIELD}"
         pipeline.extend(
-            [{"$unwind": "$" + list_path}, {"$set": {field: "$" + list_path}}]
+            [{"$unwind": f"${list_path}"}, {"$set": {field: f"${list_path}"}}]
         )
 
-    support_path = field + ".support"
+    support_path = f"{field}.support"
     pipeline.extend(
         [
             {
                 "$set": {
-                    "_id": "$" + field + "._id",
-                    "support": "$" + support_path,
-                    field + "._cls": "Classification",
+                    "_id": f"${field}._id",
+                    "support": f"${support_path}",
+                    f"{field}._cls": "Classification",
                     "_rand": {"$rand": {}},
                 }
             },
@@ -632,12 +618,11 @@ def _write_trajectories(dataset, src_collection, field, other_fields=None):
     supported_types = (fol.Detections, fol.Polylines, fol.Keypoints)
     if label_type not in supported_types:
         raise ValueError(
-            "Frame field '%s' must be a %s type; found %s"
-            % (field, supported_types, label_type)
+            f"Frame field '{field}' must be a {supported_types} type; found {label_type}"
         )
 
     src_dataset = src_collection._dataset
-    _tmp_field = "_" + field
+    _tmp_field = f"_{field}"
 
     trajs = _get_trajectories(src_collection, field)
     src_collection.set_values(
@@ -653,7 +638,7 @@ def _write_trajectories(dataset, src_collection, field, other_fields=None):
 
     project = {
         "_id": False,
-        "_sample_id": "$" + id_field,
+        "_sample_id": f"${id_field}",
         _tmp_field: True,
         "_media_type": True,
         "filepath": True,
@@ -670,17 +655,17 @@ def _write_trajectories(dataset, src_collection, field, other_fields=None):
     pipeline.extend(
         [
             {"$project": project},
-            {"$unwind": "$" + _tmp_field},
+            {"$unwind": f"${_tmp_field}"},
             {
                 "$set": {
-                    "support": {"$slice": ["$" + _tmp_field, 2, 2]},
+                    "support": {"$slice": [f"${_tmp_field}", 2, 2]},
                     field: {
                         "_cls": "Label",
-                        "label": {"$arrayElemAt": ["$" + _tmp_field, 0]},
-                        "index": {"$arrayElemAt": ["$" + _tmp_field, 1]},
+                        "label": {"$arrayElemAt": [f"${_tmp_field}", 0]},
+                        "index": {"$arrayElemAt": [f"${_tmp_field}", 1]},
                     },
                     "_rand": {"$rand": {}},
-                },
+                }
             },
             {"$unset": _tmp_field},
             {"$out": dataset._sample_collection_name},
@@ -735,10 +720,10 @@ def _write_manual_clips(dataset, src_collection, clips, other_fields=None):
 
     project = {
         "_id": False,
-        "_sample_id": "$" + id_field,
+        "_sample_id": f"${id_field}",
         "_media_type": True,
         "filepath": True,
-        "support": "$" + _tmp_field,
+        "support": f"${_tmp_field}",
         "metadata": True,
         "tags": True,
     }
@@ -780,7 +765,7 @@ def _get_trajectories(sample_collection, frame_field):
 
     fn_expr = F("frames").map(F("frame_number"))
     uuid_expr = F("frames").map(
-        F(frame_field + "." + label_type._LABEL_LIST_FIELD).map(
+        F(f"{frame_field}.{label_type._LABEL_LIST_FIELD}").map(
             F("label").concat(
                 ".", (F("index") != None).if_else(F("index").to_string(), "")
             )
@@ -806,10 +791,10 @@ def _get_trajectories(sample_collection, frame_field):
                     index = int(index)
                     obs[(label, index)].add(fn)
 
-        clips = []
-        for (label, index), bounds in obs.items():
-            clips.append((label, index, bounds.min, bounds.max))
-
+        clips = [
+            (label, index, bounds.min, bounds.max)
+            for (label, index), bounds in obs.items()
+        ]
         trajs.append(clips)
 
     return trajs

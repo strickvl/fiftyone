@@ -228,28 +228,15 @@ def indent_lines(s, indent=4, skip=0):
     """
     lines = s.split("\n")
 
-    skipped_lines = lines[:skip]
-    if skipped_lines:
-        skipped = "\n".join(skipped_lines)
-    else:
-        skipped = None
-
-    indent_lines = lines[skip:]
-    if indent_lines:
+    skipped = "\n".join(skipped_lines) if (skipped_lines := lines[:skip]) else None
+    if indent_lines := lines[skip:]:
         indented = "\n".join((" " * indent) + l for l in indent_lines)
     else:
         indented = None
 
-    if skipped is not None and indented is not None:
-        return skipped + "\n" + indented
-
     if skipped is not None:
-        return skipped
-
-    if indented is not None:
-        return indented
-
-    return s
+        return skipped + "\n" + indented if indented is not None else skipped
+    return indented if indented is not None else s
 
 
 def justify_headings(elements, width=None):
@@ -694,8 +681,7 @@ def parse_serializable(obj, cls):
         return cls.from_dict(obj)
 
     raise ValueError(
-        "Unable to load '%s' as an instance of '%s'"
-        % (obj, etau.get_class_name(cls))
+        f"Unable to load '{obj}' as an instance of '{etau.get_class_name(cls)}'"
     )
 
 
@@ -1119,11 +1105,11 @@ def compute_filehash(filepath, method=None, chunk_size=None):
     hasher = getattr(hashlib, method)()
     with open(filepath, "rb") as f:
         while True:
-            data = f.read(chunk_size)
-            if not data:
-                break
+            if data := f.read(chunk_size):
+                hasher.update(data)
 
-            hasher.update(data)
+            else:
+                break
 
     return hasher.hexdigest()
 
@@ -1182,11 +1168,10 @@ def iter_batches(iterable, batch_size):
     """
     it = iter(iterable)
     while True:
-        chunk = tuple(itertools.islice(it, batch_size))
-        if not chunk:
+        if chunk := tuple(itertools.islice(it, batch_size)):
+            yield chunk
+        else:
             return
-
-        yield chunk
 
 
 def iter_slices(sliceable, batch_size):
@@ -1338,7 +1323,7 @@ def is_32_bit():
     Returns:
         True/False
     """
-    return struct.calcsize("P") * 8 == 32
+    return struct.calcsize("P") == 4
 
 
 def get_multiprocessing_context():

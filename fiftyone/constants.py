@@ -5,6 +5,7 @@ Package-wide constants.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
+
 from datetime import datetime
 import os
 
@@ -38,7 +39,7 @@ AUTHOR = _META["author"]
 AUTHOR_EMAIL = _META["author-email"]
 URL = _META["home-page"]
 LICENSE = _META["license"]
-VERSION_LONG = "FiftyOne v%s, %s" % (VERSION, AUTHOR)
+VERSION_LONG = f"FiftyOne v{VERSION}, {AUTHOR}"
 COPYRIGHT = "2017-%d, %s" % (datetime.now().year, AUTHOR)
 
 DEV_INSTALL = os.path.isdir(

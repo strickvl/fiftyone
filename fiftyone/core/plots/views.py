@@ -91,8 +91,7 @@ class ViewGrid(PlotlyViewPlot):
         if not etau.is_container(plots):
             plots = [plots]
 
-        bad_plots = [p for p in plots if not isinstance(p, PlotlyViewPlot)]
-        if bad_plots:
+        if bad_plots := [p for p in plots if not isinstance(p, PlotlyViewPlot)]:
             raise ValueError(
                 "Found %d unsupported plots; this class only supports %s plots"
                 % (len(bad_plots), PlotlyViewPlot)
@@ -258,11 +257,7 @@ class CategoricalHistogram(PlotlyViewPlot):
         ]
         hovertemplate = "<br>".join(hover_lines) + "<extra></extra>"
 
-        if self.color is None:
-            marker_color = _DEFAULT_MARKER_COLOR
-        else:
-            marker_color = self.color
-
+        marker_color = _DEFAULT_MARKER_COLOR if self.color is None else self.color
         bar = go.Bar(
             hovertemplate=hovertemplate,
             marker_color=marker_color,
@@ -300,14 +295,13 @@ class CategoricalHistogram(PlotlyViewPlot):
         return self._aggregations
 
     def _get_trace_updates(self, view, agg_results=None):
-        if view is not None:
-            if agg_results is not None:
-                counts = agg_results[0]
-            else:
-                counts = view.aggregate(self._aggregations[0])
-        else:
+        if view is None:
             counts = None
 
+        elif agg_results is not None:
+            counts = agg_results[0]
+        else:
+            counts = view.aggregate(self._aggregations[0])
         if counts:
             keys, values = zip(
                 *sorted(counts.items(), key=self._order, reverse=self._reverse)
@@ -404,11 +398,7 @@ class NumericalHistogram(PlotlyViewPlot):
         ]
         hovertemplate = "<br>".join(hover_lines) + "<extra></extra>"
 
-        if self.color is None:
-            marker_color = _DEFAULT_MARKER_COLOR
-        else:
-            marker_color = self.color
-
+        marker_color = _DEFAULT_MARKER_COLOR if self.color is None else self.color
         bar = go.Bar(
             offset=0,
             hovertemplate=hovertemplate,

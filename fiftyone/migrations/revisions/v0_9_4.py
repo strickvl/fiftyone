@@ -15,11 +15,7 @@ def up(db, dataset_name):
 
     for field in sample_fields:
         if "db_field" not in field:
-            if field["name"] == "id":
-                field["db_field"] = "_id"
-            else:
-                field["db_field"] = field["name"]
-
+            field["db_field"] = "_id" if field["name"] == "id" else field["name"]
     if not _has_field("id", sample_fields):
         sample_fields.insert(
             0,
@@ -38,11 +34,7 @@ def up(db, dataset_name):
 
     for field in frame_fields:
         if "db_field" not in field:
-            if field["name"] == "id":
-                field["db_field"] = "_id"
-            else:
-                field["db_field"] = field["name"]
-
+            field["db_field"] = "_id" if field["name"] == "id" else field["name"]
     if not _has_field("id", frame_fields):
         frame_fields.insert(
             0,

@@ -614,8 +614,7 @@ def _parse_backend(backend):
     available_backends = ("matplotlib", "plotly")
     if backend not in available_backends:
         raise ValueError(
-            "Unsupported plotting backend '%s'; supported values are %s"
-            % (backend, available_backends)
+            f"Unsupported plotting backend '{backend}'; supported values are {available_backends}"
         )
 
     return backend
@@ -870,8 +869,7 @@ class InteractivePlot(ResponsivePlot):
         supported_link_types = ("samples", "frames", "labels")
         if link_type not in supported_link_types:
             raise ValueError(
-                "Unsupported link_type '%s'; supported values are %s"
-                % (link_type, supported_link_types)
+                f"Unsupported link_type '{link_type}'; supported values are {supported_link_types}"
             )
 
         if selection_mode is None and link_type in ("frames", "labels"):
@@ -954,8 +952,7 @@ class InteractivePlot(ResponsivePlot):
 
         if mode not in supported_modes:
             raise ValueError(
-                "Unsupported selection_mode '%s'; supported values are %s"
-                % (mode, supported_modes)
+                f"Unsupported selection_mode '{mode}'; supported values are {supported_modes}"
             )
 
         self._selection_mode = mode
@@ -989,10 +986,7 @@ class InteractivePlot(ResponsivePlot):
 
         If the plot is not connected, returns None.
         """
-        if not self.is_connected:
-            return None
-
-        return self._selected_ids
+        return None if not self.is_connected else self._selected_ids
 
     @property
     def _selected_ids(self):

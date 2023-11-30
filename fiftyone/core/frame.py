@@ -62,10 +62,10 @@ class Frames(object):
         self._delete_all = False
 
     def __str__(self):
-        return "<%s: %s>" % (self.__class__.__name__, fou.pformat(dict(self)))
+        return f"<{self.__class__.__name__}: {fou.pformat(dict(self))}>"
 
     def __repr__(self):
-        return "<%s: %s>" % (self.__class__.__name__, len(self))
+        return f"<{self.__class__.__name__}: {len(self)}>"
 
     def __bool__(self):
         return len(self) > 0
@@ -164,8 +164,8 @@ class Frames(object):
         try:
             return next(self.values())
         except StopIteration:
-            id_str = " '%s'" % self._sample.id if self._sample.id else ""
-            raise ValueError("Sample%s has no frame labels" % id_str)
+            id_str = f" '{self._sample.id}'" if self._sample.id else ""
+            raise ValueError(f"Sample{id_str} has no frame labels")
 
     def last(self):
         """Returns the last :class:`Frame` for the sample.
@@ -173,12 +173,11 @@ class Frames(object):
         Returns:
             a :class:`Frame`
         """
-        frame_numbers = self._get_frame_numbers()
-        if frame_numbers:
+        if frame_numbers := self._get_frame_numbers():
             return self[max(frame_numbers)]
 
-        id_str = " '%s'" % self._sample.id if self._sample.id else ""
-        raise ValueError("Sample%s has no frame labels" % id_str)
+        id_str = f" '{self._sample.id}'" if self._sample.id else ""
+        raise ValueError(f"Sample{id_str} has no frame labels")
 
     def head(self, num_frames=3):
         """Returns a list of the first few frames for the sample.
@@ -229,8 +228,7 @@ class Frames(object):
         Returns:
             a generator that emits frame numbers
         """
-        for frame_number in sorted(self._get_frame_numbers()):
-            yield frame_number
+        yield from sorted(self._get_frame_numbers())
 
     def items(self):
         """Returns an iterator over the frame numberes and :class:`Frame`
@@ -253,8 +251,7 @@ class Frames(object):
         Returns:
             a generator that emits :class:`Frame` instances
         """
-        for frame in self._iter_frames():
-            yield frame
+        yield from self._iter_frames()
 
     def add_frame(self, frame_number, frame, expand_schema=True):
         """Adds the frame to this instance.
@@ -276,10 +273,7 @@ class Frames(object):
         fofu.validate_frame_number(frame_number)
 
         if not isinstance(frame, (Frame, FrameView)):
-            raise TypeError(
-                "Expected a %s or %s; found %s"
-                % (Frame, FrameView, type(frame))
-            )
+            raise TypeError(f"Expected a {Frame} or {FrameView}; found {type(frame)}")
 
         if self._in_db:
             _frame = frame
@@ -509,11 +503,10 @@ class Frames(object):
             {"$project": {"frame_number": True}},
         ]
 
-        id_map = {}
-        for d in foo.aggregate(self._frame_collection, pipeline):
-            id_map[d["frame_number"]] = d["_id"]
-
-        return id_map
+        return {
+            d["frame_number"]: d["_id"]
+            for d in foo.aggregate(self._frame_collection, pipeline)
+        }
 
     def _set_replacement(self, frame):
         self._replacements[frame.frame_number] = frame
@@ -751,10 +744,7 @@ class FramesView(Frames):
         fofu.validate_frame_number(frame_number)
 
         if not isinstance(frame, (Frame, FrameView)):
-            raise TypeError(
-                "Expected a %s or %s; found %s"
-                % (Frame, FrameView, type(frame))
-            )
+            raise TypeError(f"Expected a {Frame} or {FrameView}; found {type(frame)}")
 
         frame_view = self._make_frame({"_sample_id": self._sample_id})
 
@@ -861,18 +851,17 @@ class FramesView(Frames):
             # Update elements of filtered array fields separately
             for field in self._filtered_fields:
                 root, leaf = field.split(".", 1)
-                for element in doc.pop(root, {}).get(leaf, []):
-                    ops.append(
-                        UpdateOne(
-                            {
-                                "frame_number": frame_number,
-                                "_sample_id": self._sample_id,
-                                field + "._id": element["_id"],
-                            },
-                            {"$set": {field + ".$": element}},
-                        )
+                ops.extend(
+                    UpdateOne(
+                        {
+                            "frame_number": frame_number,
+                            "_sample_id": self._sample_id,
+                            f"{field}._id": element["_id"],
+                        },
+                        {"$set": {f"{field}.$": element}},
                     )
-
+                    for element in doc.pop(root, {}).get(leaf, [])
+                )
             # Update non-filtered fields
             ops.append(
                 UpdateOne(

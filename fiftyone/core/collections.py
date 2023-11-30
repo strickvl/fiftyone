@@ -231,10 +231,7 @@ class SampleCollection(object):
         if field in self.classes:
             return self.classes[field]
 
-        if self.default_classes:
-            return self.default_classes
-
-        return None
+        return self.default_classes if self.default_classes else None
 
     @property
     def mask_targets(self):
@@ -297,10 +294,7 @@ class SampleCollection(object):
         if field in self.mask_targets:
             return self.mask_targets[field]
 
-        if self.default_mask_targets:
-            return self.default_mask_targets
-
-        return None
+        return self.default_mask_targets if self.default_mask_targets else None
 
     @property
     def skeletons(self):
@@ -359,10 +353,7 @@ class SampleCollection(object):
         if field in self.skeletons:
             return self.skeletons[field]
 
-        if self.default_skeleton:
-            return self.default_skeleton
-
-        return None
+        return self.default_skeleton if self.default_skeleton else None
 
     def summary(self):
         """Returns a string summary of the collection.
@@ -382,7 +373,7 @@ class SampleCollection(object):
         try:
             return next(iter(self))
         except StopIteration:
-            raise ValueError("%s is empty" % self.__class__.__name__)
+            raise ValueError(f"{self.__class__.__name__} is empty")
 
     def last(self):
         """Returns the last sample in the collection.
@@ -405,7 +396,7 @@ class SampleCollection(object):
         Returns:
             a list of :class:`fiftyone.core.sample.Sample` objects
         """
-        return [s for s in self[:num_samples]]
+        return list(self[:num_samples])
 
     def tail(self, num_samples=3):
         """Returns a list of the last few samples in the collection.
@@ -419,7 +410,7 @@ class SampleCollection(object):
         Returns:
             a list of :class:`fiftyone.core.sample.Sample` objects
         """
-        return [s for s in self[-num_samples:]]
+        return list(self[-num_samples:])
 
     def one(self, expr, exact=False):
         """Returns a single sample in this collection matching the expression.
@@ -659,7 +650,7 @@ class SampleCollection(object):
 
         field_name = root
         if field_name in fields:
-            field_name += "_" + _get_random_characters(6)
+            field_name += f"_{_get_random_characters(6)}"
 
         while field_name in fields:
             field_name += _get_random_characters(1)
@@ -719,7 +710,7 @@ class SampleCollection(object):
                 # We only validate that the root field exists
                 field_name = field.split(".", 1)[0]
                 if field_name not in existing_fields:
-                    raise ValueError("Field '%s' does not exist" % field_name)
+                    raise ValueError(f"Field '{field_name}' does not exist")
 
         if frame_fields:
             existing_frame_fields = set(
@@ -732,9 +723,7 @@ class SampleCollection(object):
                 # We only validate that the root field exists
                 field_name = field.split(".", 1)[0]
                 if field_name not in existing_frame_fields:
-                    raise ValueError(
-                        "Frame field '%s' does not exist" % field_name
-                    )
+                    raise ValueError(f"Frame field '{field_name}' does not exist")
 
     def validate_field_type(
         self, field_name, ftype, embedded_doc_type=None, subfield=None
@@ -766,8 +755,7 @@ class SampleCollection(object):
         if field_name not in schema:
             ftype = "Frame field" if is_frame_field else "Field"
             raise ValueError(
-                "%s '%s' does not exist on collection '%s'"
-                % (ftype, field_name, self.name)
+                f"{ftype} '{field_name}' does not exist on collection '{self.name}'"
             )
 
         field = schema[field_name]
@@ -777,8 +765,7 @@ class SampleCollection(object):
                 field.document_type is not embedded_doc_type
             ):
                 raise ValueError(
-                    "Field '%s' must be an instance of %s; found %s"
-                    % (field_name, ftype(embedded_doc_type), field)
+                    f"Field '{field_name}' must be an instance of {ftype(embedded_doc_type)}; found {field}"
                 )
         elif subfield is not None:
             if not isinstance(field, (fof.ListField, fof.DictField)):
@@ -794,12 +781,10 @@ class SampleCollection(object):
                     "Field '%s' must be an instance of %s; found %s"
                     % (field_name, ftype(field=subfield()), field)
                 )
-        else:
-            if not isinstance(field, ftype):
-                raise ValueError(
-                    "Field '%s' must be an instance of %s; found %s"
-                    % (field_name, ftype, field)
-                )
+        elif not isinstance(field, ftype):
+            raise ValueError(
+                f"Field '{field_name}' must be an instance of {ftype}; found {field}"
+            )
 
     def tag_samples(self, tags):
         """Adds the tag(s) to all samples in this collection, if necessary.
@@ -807,11 +792,7 @@ class SampleCollection(object):
         Args:
             tags: a tag or iterable of tags
         """
-        if etau.is_str(tags):
-            tags = [tags]
-        else:
-            tags = list(tags)
-
+        tags = [tags] if etau.is_str(tags) else list(tags)
         def _add_tags(_tags):
             if not _tags:
                 return tags
@@ -831,16 +812,9 @@ class SampleCollection(object):
         Args:
             tags: a tag or iterable of tags
         """
-        if etau.is_str(tags):
-            tags = [tags]
-        else:
-            tags = list(tags)
-
+        tags = [tags] if etau.is_str(tags) else list(tags)
         def _remove_tags(_tags):
-            if not _tags:
-                return _tags
-
-            return [t for t in _tags if t not in tags]
+            return _tags if not _tags else [t for t in _tags if t not in tags]
 
         self._edit_sample_tags(_remove_tags)
 
@@ -867,11 +841,7 @@ class SampleCollection(object):
                 :class:`fiftyone.core.labels.Label` fields. By default, all
                 label fields are used
         """
-        if etau.is_str(tags):
-            tags = [tags]
-        else:
-            tags = list(tags)
-
+        tags = [tags] if etau.is_str(tags) else list(tags)
         def _add_tags(_tags):
             if not _tags:
                 return tags
@@ -894,16 +864,9 @@ class SampleCollection(object):
                 :class:`fiftyone.core.labels.Label` fields. By default, all
                 label fields are used
         """
-        if etau.is_str(tags):
-            tags = [tags]
-        else:
-            tags = list(tags)
-
+        tags = [tags] if etau.is_str(tags) else list(tags)
         def _remove_tags(_tags):
-            if not _tags:
-                return _tags
-
-            return [t for t in _tags if t not in tags]
+            return _tags if not _tags else [t for t in _tags if t not in tags]
 
         self._edit_label_tags(_remove_tags, label_fields=label_fields)
 
@@ -988,15 +951,15 @@ class SampleCollection(object):
                         if not is_list_field:
                             frame_label_ids = [frame_label_ids]
 
-                        for label_id in frame_label_ids:
-                            labels.append(
-                                {
-                                    "sample_id": sample_id,
-                                    "frame_number": frame_number,
-                                    "field": label_field,
-                                    "label_id": label_id,
-                                }
-                            )
+                        labels.extend(
+                            {
+                                "sample_id": sample_id,
+                                "frame_number": frame_number,
+                                "field": label_field,
+                                "label_id": label_id,
+                            }
+                            for label_id in frame_label_ids
+                        )
             else:
                 for sample_id, sample_label_ids in zip(sample_ids, label_ids):
                     if not sample_label_ids:
@@ -1005,15 +968,14 @@ class SampleCollection(object):
                     if not is_list_field:
                         sample_label_ids = [sample_label_ids]
 
-                    for label_id in sample_label_ids:
-                        labels.append(
-                            {
-                                "sample_id": sample_id,
-                                "field": label_field,
-                                "label_id": label_id,
-                            }
-                        )
-
+                    labels.extend(
+                        {
+                            "sample_id": sample_id,
+                            "field": label_field,
+                            "label_id": label_id,
+                        }
+                        for label_id in sample_label_ids
+                    )
         return labels
 
     def _get_label_ids(self, tags=None, fields=None):
@@ -1070,11 +1032,7 @@ class SampleCollection(object):
                 each label in the input field to determine whether to move it
                 (True) or leave it (False)
         """
-        if filter is not None:
-            move_view = self.filter_labels(in_field, filter)
-        else:
-            move_view = self
-
+        move_view = self if filter is None else self.filter_labels(in_field, filter)
         move_view.merge_labels(in_field, out_field)
 
     def merge_labels(self, in_field, out_field):
@@ -1299,7 +1257,7 @@ class SampleCollection(object):
         ):
             label_type = field_type.document_type
             list_field = label_type._LABEL_LIST_FIELD
-            path = field_name + "." + list_field
+            path = f"{field_name}.{list_field}"
             if is_frame_field:
                 path = self._FRAMES_PREFIX + path
 
@@ -1434,7 +1392,7 @@ class SampleCollection(object):
 
         if list_fields:
             list_field = list_fields[0]
-            elem_id_field = list_field + "._id"
+            elem_id_field = f"{list_field}._id"
 
             if sample_ids is not None:
                 view = self.select(sample_ids, ordered=True)
@@ -1481,14 +1439,10 @@ class SampleCollection(object):
                 "At most one array field can be unwound when setting values"
             )
 
-        if sample_ids is not None:
-            view = self.select(sample_ids, ordered=True)
-        else:
-            view = self
-
+        view = self if sample_ids is None else self.select(sample_ids, ordered=True)
         if list_fields:
             list_field = list_fields[0]
-            elem_id_field = "frames." + list_field + "._id"
+            elem_id_field = f"frames.{list_field}._id"
 
             if frame_ids is None:
                 frame_ids, elem_ids = view.values(
@@ -1564,12 +1518,8 @@ class SampleCollection(object):
     ):
         root = list_field
         leaf = field_name[len(root) + 1 :]
-        elem_id = root + "._id"
-        if leaf:
-            elem = root + ".$." + leaf
-        else:
-            elem = root + ".$"
-
+        elem_id = f"{root}._id"
+        elem = f"{root}.$.{leaf}" if leaf else f"{root}.$"
         ops = []
         for _id, _elem_ids, _values in zip(ids, elem_ids, values):
             if not _elem_ids:
@@ -1608,9 +1558,9 @@ class SampleCollection(object):
 
         ops = []
         if issubclass(label_type, fol._LABEL_LIST_FIELDS):
-            root = field_name + "." + label_type._LABEL_LIST_FIELD
-            elem_id = root + "._id"
-            set_path = root + ".$"
+            root = f"{field_name}.{label_type._LABEL_LIST_FIELD}"
+            elem_id = f"{root}._id"
+            set_path = f"{root}.$"
 
             for _id, _docs in zip(sample_ids, label_docs):
                 if not _docs:
@@ -1622,15 +1572,15 @@ class SampleCollection(object):
                 if not isinstance(_docs, (list, tuple)):
                     _docs = [_docs]
 
-                for doc in _docs:
-                    ops.append(
-                        UpdateOne(
-                            {"_id": _id, elem_id: doc["_id"]},
-                            {"$set": {set_path: doc}},
-                        )
+                ops.extend(
+                    UpdateOne(
+                        {"_id": _id, elem_id: doc["_id"]},
+                        {"$set": {set_path: doc}},
                     )
+                    for doc in _docs
+                )
         else:
-            elem_id = field_name + "._id"
+            elem_id = f"{field_name}._id"
 
             for _id, doc in zip(sample_ids, label_docs):
                 if etau.is_str(_id):
@@ -2402,13 +2352,11 @@ class SampleCollection(object):
             if not issubclass(run_cls, run_type):
                 continue
 
-            if any(
-                getattr(brain_info.config, key, None) != value
+            if all(
+                getattr(brain_info.config, key, None) == value
                 for key, value in kwargs.items()
             ):
-                continue
-
-            brain_keys.append(brain_key)
+                brain_keys.append(brain_key)
 
         return brain_keys
 
@@ -6721,9 +6669,7 @@ class SampleCollection(object):
                     return field
 
                 if _field in self._get_default_indexes(frames=is_frame_field):
-                    raise ValueError(
-                        "Cannot modify default index '%s'" % field
-                    )
+                    raise ValueError(f"Cannot modify default index '{field}'")
 
                 # We need to drop existing index and replace with a unique one
                 self.drop_index(field)
@@ -6771,13 +6717,13 @@ class SampleCollection(object):
 
         if is_frame_index:
             if name in self._get_default_indexes(frames=True):
-                raise ValueError("Cannot drop default frame index '%s'" % name)
+                raise ValueError(f"Cannot drop default frame index '{name}'")
 
             coll = self._dataset._frame_collection
-        else:
-            if name in self._get_default_indexes():
-                raise ValueError("Cannot drop default index '%s'" % name)
+        elif name in self._get_default_indexes():
+            raise ValueError(f"Cannot drop default index '{name}'")
 
+        else:
             coll = self._dataset._sample_collection
 
         index_map = {}
@@ -6794,9 +6740,7 @@ class SampleCollection(object):
 
         if name not in index_map:
             itype = "frame index" if is_frame_index else "index"
-            raise ValueError(
-                "%s has no %s '%s'" % (self.__class__.__name__, itype, name)
-            )
+            raise ValueError(f"{self.__class__.__name__} has no {itype} '{name}'")
 
         coll.drop_index(index_map[name])
 
@@ -6879,7 +6823,7 @@ class SampleCollection(object):
 
             if write_frame_labels:
                 frames = {"frames": sd.pop("frames", {})}
-                filename = sample.id + ".json"
+                filename = f"{sample.id}.json"
                 sd["frames"] = filename
                 frames_path = os.path.join(frame_labels_dir, filename)
                 etas.write_json(frames, frames_path, pretty_print=pretty_print)
@@ -7109,8 +7053,8 @@ class SampleCollection(object):
         return big_aggs, batch_aggs, facet_aggs
 
     def _build_batch_pipeline(self, aggs_map):
-        project = {}
         attach_frames = False
+        project = {}
         for idx, aggregation in aggs_map.items():
             big_field = "value%d" % idx
 
@@ -7122,8 +7066,7 @@ class SampleCollection(object):
                 project[big_field] = _pipeline[0]["$project"][big_field]
             except:
                 raise ValueError(
-                    "Batchable aggregations must have pipelines with a single "
-                    "$project stage; found %s" % _pipeline
+                    f"Batchable aggregations must have pipelines with a single $project stage; found {_pipeline}"
                 )
 
         return self._pipeline(
@@ -7137,14 +7080,13 @@ class SampleCollection(object):
         )
 
     def _build_faceted_pipelines(self, aggs_map):
-        pipelines = {}
-        for idx, aggregation in aggs_map.items():
-            pipelines[idx] = self._pipeline(
+        return {
+            idx: self._pipeline(
                 pipeline=aggregation.to_mongo(self),
                 attach_frames=aggregation._needs_frames(self),
             )
-
-        return pipelines
+            for idx, aggregation in aggs_map.items()
+        }
 
     def _parse_big_result(self, aggregation, result):
         if result:
@@ -7223,9 +7165,7 @@ class SampleCollection(object):
         pipelines = {}
         for idx, agg in enumerate(aggregations):
             if not isinstance(agg, foa.Aggregation):
-                raise TypeError(
-                    "'%s' is not an %s" % (agg.__class__, foa.Aggregation)
-                )
+                raise TypeError(f"'{agg.__class__}' is not an {foa.Aggregation}")
 
             pipelines[str(idx)] = agg.to_mongo(self)
 
@@ -7234,8 +7174,7 @@ class SampleCollection(object):
     def _process_aggregations(self, aggregations, result, scalar_result):
         results = []
         for idx, agg in enumerate(aggregations):
-            _result = result[str(idx)]
-            if _result:
+            if _result := result[str(idx)]:
                 results.append(agg.parse_result(_result[0]))
             else:
                 results.append(agg.default_result())
@@ -7298,9 +7237,9 @@ class SampleCollection(object):
         )
 
     def _to_fields_str(self, field_schema):
-        max_len = max([len(field_name) for field_name in field_schema]) + 1
+        max_len = max(len(field_name) for field_name in field_schema) + 1
         return "\n".join(
-            "    %s %s" % ((field_name + ":").ljust(max_len), str(field))
+            f'    {f"{field_name}:".ljust(max_len)} {str(field)}'
             for field_name, field in field_schema.items()
         )
 
@@ -7464,9 +7403,7 @@ class SampleCollection(object):
 
         if root not in schema:
             ftype = "frame field" if is_frame_field else "field"
-            raise ValueError(
-                "%s has no %s '%s'" % (self.__class__.__name__, ftype, root)
-            )
+            raise ValueError(f"{self.__class__.__name__} has no {ftype} '{root}'")
 
         return schema[root]
 
@@ -7479,20 +7416,14 @@ class SampleCollection(object):
 
         if field_name not in schema:
             ftype = "frame field" if is_frame_field else "field"
-            raise ValueError(
-                "%s has no %s '%s'"
-                % (self.__class__.__name__, ftype, field_name)
-            )
+            raise ValueError(f"{self.__class__.__name__} has no {ftype} '{field_name}'")
 
         field = schema[field_name]
 
         if not isinstance(field, fof.EmbeddedDocumentField) or not issubclass(
             field.document_type, fol.Label
         ):
-            raise ValueError(
-                "Field '%s' is not a Label type; found %s"
-                % (field_name, field)
-            )
+            raise ValueError(f"Field '{field_name}' is not a Label type; found {field}")
 
         return field.document_type
 
@@ -7500,13 +7431,9 @@ class SampleCollection(object):
         label_type = self._get_label_field_type(field_name)
 
         if issubclass(label_type, fol._LABEL_LIST_FIELDS):
-            field_name += "." + label_type._LABEL_LIST_FIELD
+            field_name += f".{label_type._LABEL_LIST_FIELD}"
 
-        if subfield:
-            field_path = field_name + "." + subfield
-        else:
-            field_path = field_name
-
+        field_path = f"{field_name}.{subfield}" if subfield else field_name
         return label_type, field_path
 
     def _get_geo_location_field(self):
@@ -7514,12 +7441,11 @@ class SampleCollection(object):
             ftype=fof.EmbeddedDocumentField, embedded_doc_type=fol.GeoLocation
         )
         if not geo_schema:
-            raise ValueError("No %s field found to use" % fol.GeoLocation)
+            raise ValueError(f"No {fol.GeoLocation} field found to use")
 
         if len(geo_schema) > 1:
             raise ValueError(
-                "Multiple %s fields found; you must specify which to use"
-                % fol.GeoLocation
+                f"Multiple {fol.GeoLocation} fields found; you must specify which to use"
             )
 
         return next(iter(geo_schema.keys()))
@@ -7649,10 +7575,7 @@ def _parse_frame_labels_field(
 
 
 def _is_glob_pattern(s):
-    if not etau.is_str(s):
-        return False
-
-    return "*" in s or "?" in s or "[" in s
+    return False if not etau.is_str(s) else "*" in s or "?" in s or "[" in s
 
 
 def _get_matching_fields(sample_collection, patt, frames=False):
@@ -7696,9 +7619,7 @@ def _get_default_label_fields_for_exporter(
 
     if required:
         # Strange formatting is because `label_cls` may be a tuple
-        raise ValueError(
-            "No compatible field(s) of type %s found" % (label_cls,)
-        )
+        raise ValueError(f"No compatible field(s) of type {label_cls} found")
 
     return None
 
@@ -7736,8 +7657,7 @@ def _get_default_frame_label_fields_for_exporter(
     if required:
         # Strange formatting is because `frame_labels_cls` may be a tuple
         raise ValueError(
-            "No compatible frame field(s) of type %s found"
-            % (frame_labels_cls,)
+            f"No compatible frame field(s) of type {frame_labels_cls} found"
         )
 
     return None
@@ -7823,11 +7743,11 @@ def _get_field_with_type(
 
 
 def _get_matching_label_field(label_schema, label_type_or_types):
-    valid_fields = []
-    for field, field_type in label_schema.items():
-        if issubclass(field_type.document_type, label_type_or_types):
-            valid_fields.append(field)
-
+    valid_fields = [
+        field
+        for field, field_type in label_schema.items()
+        if issubclass(field_type.document_type, label_type_or_types)
+    ]
     if not valid_fields:
         return None
 
@@ -7861,12 +7781,12 @@ def _parse_values_dict(sample_collection, key_field, values):
 
     if is_frame_field:
         raise ValueError(
-            "Invalid key field '%s'; keys cannot be frame fields" % _key_field
+            f"Invalid key field '{_key_field}'; keys cannot be frame fields"
         )
 
     if list_fields or other_list_fields:
         raise ValueError(
-            "Invalid key field '%s'; keys cannot be list fields" % _key_field
+            f"Invalid key field '{_key_field}'; keys cannot be list fields"
         )
 
     keys = list(values.keys())
@@ -7875,7 +7795,7 @@ def _parse_values_dict(sample_collection, key_field, values):
         keys = [ObjectId(k) for k in keys]
 
     view = sample_collection.mongo([{"$match": {key_field: {"$in": keys}}}])
-    id_map = {k: v for k, v in zip(*view.values([key_field, "id"]))}
+    id_map = dict(zip(*view.values([key_field, "id"])))
 
     sample_ids = []
     bad_keys = []
@@ -7920,9 +7840,10 @@ def _parse_frame_values_dicts(sample_collection, sample_ids, values):
         for _fid, fn in zip(_fids, _fns):
             id_map[(_id, fn)] = _fid
 
-        for fn in set(_vals.keys()) - set(_fns):
-            dicts.append({"_sample_id": ObjectId(_id), "frame_number": fn})
-
+        dicts.extend(
+            {"_sample_id": ObjectId(_id), "frame_number": fn}
+            for fn in set(_vals.keys()) - set(_fns)
+        )
     # Insert frame documents for new frame numbers
     if dicts:
         sample_collection._dataset._bulk_write(

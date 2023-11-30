@@ -56,7 +56,7 @@ def get_dataset_revision(name):
     conn = foo.get_db_conn()
     dataset_doc = conn.datasets.find_one({"name": name})
     if dataset_doc is None:
-        raise ValueError("Dataset '%s' not found" % name)
+        raise ValueError(f"Dataset '{name}' not found")
 
     return dataset_doc.get("version", None)
 
@@ -205,9 +205,6 @@ def migrate_dataset_if_necessary(name, destination=None, verbose=False):
         conn.datasets.update_one(
             {"name": name}, {"$set": {"version": destination}}
         )
-    else:
-        # Old version of FiftyOne that didn't store dataset versions
-        pass
 
 
 class MigrationRunner(object):
@@ -376,12 +373,12 @@ def _get_all_revisions(admin=False):
 
     module_prefix = __loader__.name.rsplit(".", 1)[0] + ".revisions"
     if admin:
-        module_prefix = module_prefix + ".admin"
+        module_prefix = f"{module_prefix}.admin"
 
     revisions = []
     for filename in revision_files:
         version = filename[1:-3].replace("_", ".")
-        module = module_prefix + "." + filename[:-3]
+        module = f"{module_prefix}.{filename[:-3]}"
         revisions.append((version, module))
 
     return sorted(revisions, key=lambda r: Version(r[0]))

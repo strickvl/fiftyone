@@ -25,11 +25,7 @@ def get_media_type(filepath):
         the media type
     """
     # @todo use `etav.is_supported_video_file` instead?
-    if etav.is_video_mime_type(filepath):
-        return VIDEO
-
-    # @todo don't assume all non-video samples are images!
-    return IMAGE
+    return VIDEO if etav.is_video_mime_type(filepath) else IMAGE
 
 
 class MediaTypeError(TypeError):

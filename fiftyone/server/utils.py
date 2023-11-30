@@ -69,18 +69,16 @@ def iter_label_fields(view: foc.SampleCollection):
     Args:
         view: a :class:`fiftyone.core.collections.SampleCollection`
     """
-    for field_name, field in view.get_field_schema(
+    yield from view.get_field_schema(
         ftype=fof.EmbeddedDocumentField, embedded_doc_type=fol.Label
-    ).items():
-        yield field_name, field
-
+    ).items()
     if view.media_type != fom.VIDEO:
         return
 
     for field_name, field in view.get_frame_field_schema(
         ftype=fof.EmbeddedDocumentField, embedded_doc_type=fol.Label
     ).items():
-        yield "frames.%s" % field_name, field
+        yield (f"frames.{field_name}", field)
 
 
 def meets_type(field: fof.Field, type_or_types):
@@ -108,14 +106,11 @@ def _get_tag_expr(changes):
             # We need to untag objects that do contain the tag
             tag_exprs.append(F("tags").contains(tag))
 
-    if any(changes.values()):
-        # If no tags exist, we'll always have to add
-        tag_expr = F.any([F("tags") == None] + tag_exprs)
-    else:
-        # We're only deleting tags, so we skip objects with no tags
-        tag_expr = (F("tags") != None) & F.any(tag_exprs)
-
-    return tag_expr
+    return (
+        F.any([F("tags") is None] + tag_exprs)
+        if any(changes.values())
+        else (F("tags") != None) & F.any(tag_exprs)
+    )
 
 
 def _get_tag_modifier(changes):

@@ -209,7 +209,7 @@ class ConfigCommand(Command):
             if os.path.isfile(config_path):
                 print(config_path)
             else:
-                print("No config file found at '%s'" % config_path)
+                print(f"No config file found at '{config_path}'")
 
             return
 
@@ -277,7 +277,7 @@ def _render_constant_value(value):
         _MAX_CONSTANT_VALUE_COL_WIDTH is not None
         and len(value) > _MAX_CONSTANT_VALUE_COL_WIDTH
     ):
-        value = value[: (_MAX_CONSTANT_VALUE_COL_WIDTH - 4)] + " ..."
+        value = f"{value[:_MAX_CONSTANT_VALUE_COL_WIDTH - 4]} ..."
 
     return value
 
@@ -416,9 +416,7 @@ class DatasetsListCommand(Command):
 
     @staticmethod
     def execute(parser, args):
-        datasets = fod.list_datasets()
-
-        if datasets:
+        if datasets := fod.list_datasets():
             for dataset in datasets:
                 print(dataset)
         else:
@@ -491,7 +489,7 @@ def _print_all_dataset_info(sort_by, reverse):
         key = lambda d: (d[sort_by] is not None, d[sort_by])
         info = sorted(info, key=key, reverse=not reverse)
     else:
-        print("Ignoring invalid sort-by field '%s'" % sort_by)
+        print(f"Ignoring invalid sort-by field '{sort_by}'")
 
     records = [tuple(_format_cell(i[key]) for key in headers) for i in info]
 
@@ -509,10 +507,7 @@ def _format_cell(cell):
     if cell is None:
         return "???"
 
-    if isinstance(cell, datetime):
-        return cell.replace(microsecond=0)
-
-    return cell
+    return cell.replace(microsecond=0) if isinstance(cell, datetime) else cell
 
 
 class DatasetsStatsCommand(Command):
@@ -635,7 +630,7 @@ class DatasetsCreateCommand(Command):
 
         dataset.persistent = True
 
-        print("Dataset '%s' created" % dataset.name)
+        print(f"Dataset '{dataset.name}' created")
 
 
 class DatasetsHeadCommand(Command):
@@ -805,7 +800,7 @@ class DatasetsExportCommand(Command):
 
         if json_path:
             dataset.write_json(json_path)
-            print("Dataset '%s' exported to '%s'" % (name, json_path))
+            print(f"Dataset '{name}' exported to '{json_path}'")
         else:
             dataset.export(
                 export_dir=export_dir,
@@ -815,9 +810,9 @@ class DatasetsExportCommand(Command):
             )
 
             if export_dir:
-                print("Dataset '%s' exported to '%s'" % (name, export_dir))
+                print(f"Dataset '{name}' exported to '{export_dir}'")
             else:
-                print("Dataset '%s' export complete" % name)
+                print(f"Dataset '{name}' export complete")
 
 
 class DatasetsDrawCommand(Command):
@@ -863,7 +858,7 @@ class DatasetsDrawCommand(Command):
             label_fields = [f.strip() for f in label_fields.split(",")]
 
         dataset.draw_labels(output_dir, label_fields=label_fields)
-        print("Rendered media written to '%s'" % output_dir)
+        print(f"Rendered media written to '{output_dir}'")
 
 
 class DatasetsRenameCommand(Command):
@@ -895,7 +890,7 @@ class DatasetsRenameCommand(Command):
 
         dataset = fod.load_dataset(name)
         dataset.name = new_name
-        print("Dataset '%s' renamed to '%s'" % (name, new_name))
+        print(f"Dataset '{name}' renamed to '{new_name}'")
 
 
 class DatasetsDeleteCommand(Command):
@@ -995,10 +990,7 @@ class AnnotationConfigCommand(Command):
             if os.path.isfile(annotation_config_path):
                 print(annotation_config_path)
             else:
-                print(
-                    "No annotation config file found at '%s'"
-                    % annotation_config_path
-                )
+                print(f"No annotation config file found at '{annotation_config_path}'")
 
             return
 
@@ -1065,7 +1057,7 @@ class AppConfigCommand(Command):
             if os.path.isfile(app_config_path):
                 print(app_config_path)
             else:
-                print("No App config file found at '%s'" % app_config_path)
+                print(f"No App config file found at '{app_config_path}'")
 
             return
 
@@ -1151,11 +1143,7 @@ class AppLaunchCommand(Command):
         # If desktop wasn't explicitly requested, fallback to default
         desktop = args.desktop or None
 
-        if args.name:
-            dataset = fod.load_dataset(args.name)
-        else:
-            dataset = None
-
+        dataset = fod.load_dataset(args.name) if args.name else None
         session = fos.launch_app(
             dataset=dataset,
             port=args.port,
@@ -1661,8 +1649,8 @@ def _print_zoo_dataset_list(
             if tags is None or source == default_source:
                 tags = zoo_model.tags
 
-        if (match_tags is not None) and (
-            tags is None or not all(tag in tags for tag in match_tags)
+        if match_tags is not None and (
+            tags is None or any(tag not in tags for tag in match_tags)
         ):
             continue
 
@@ -1800,8 +1788,10 @@ class DatasetZooInfoCommand(Command):
         # Print dataset info
         zoo_dataset = fozd.get_zoo_dataset(name)
         print(
-            "***** Dataset description *****\n%s"
-            % textwrap.dedent("    " + zoo_dataset.__doc__)
+            (
+                "***** Dataset description *****\n%s"
+                % textwrap.dedent(f"    {zoo_dataset.__doc__}")
+            )
         )
 
         # Check if dataset is downloaded
@@ -1820,7 +1810,7 @@ class DatasetZooInfoCommand(Command):
 
         print("***** Dataset location *****")
         if name not in downloaded_datasets:
-            print("Dataset '%s' is not downloaded" % name)
+            print(f"Dataset '{name}' is not downloaded")
         else:
             dataset_dir, info = downloaded_datasets[name]
             print(dataset_dir)
@@ -2195,7 +2185,7 @@ class ModelZooInfoCommand(Command):
         # Check if model is downloaded
         print("***** Model location *****")
         if not fozm.is_zoo_model_downloaded(name):
-            print("Model '%s' is not downloaded" % name)
+            print(f"Model '{name}' is not downloaded")
         else:
             model_path = fozm.find_zoo_model(name)
             print(model_path)
@@ -2278,8 +2268,8 @@ def _print_model_requirements(zoo_model):
     print("\n***** Current machine *****")
     if etau.has_gpu():
         print("GPU: yes")
-        print("CUDA version: %s" % etau.get_cuda_version())
-        print("cuDNN version: %s" % etau.get_cudnn_version())
+        print(f"CUDA version: {etau.get_cuda_version()}")
+        print(f"cuDNN version: {etau.get_cudnn_version()}")
     else:
         print("GPU: no")
 
@@ -2586,8 +2576,8 @@ class MigrateCommand(Command):
 
 
 def _print_migration_table(db_ver, dataset_vers):
-    print("FiftyOne version: %s" % foc.VERSION)
-    print("Database version: %s" % db_ver)
+    print(f"FiftyOne version: {foc.VERSION}")
+    print(f"Database version: {db_ver}")
 
     if dataset_vers:
         print("")
@@ -2905,24 +2895,22 @@ def _print_dict_as_table(d, headers=None):
     if headers is None:
         headers = ["key", "value"]
 
-    records = [(k, v) for k, v in d.items()]
+    records = list(d.items())
     table_str = tabulate(records, headers=headers, tablefmt=_TABLE_FORMAT)
     print(table_str)
 
 
 def _has_subparsers(parser):
-    for action in parser._actions:
-        if isinstance(action, argparse._SubParsersAction):
-            return True
-
-    return False
+    return any(
+        isinstance(action, argparse._SubParsersAction)
+        for action in parser._actions
+    )
 
 
 def _iter_subparsers(parser):
     for action in parser._actions:
         if isinstance(action, argparse._SubParsersAction):
-            for subparser in action.choices.values():
-                yield subparser
+            yield from action.choices.values()
 
 
 class _RecursiveHelpAction(argparse._HelpAction):

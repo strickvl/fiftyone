@@ -226,8 +226,7 @@ class Run(Configurable):
         """
         if not etau.is_str(key) or not key.isidentifier():
             raise ValueError(
-                "Invalid %s key '%s'. Keys must be valid variable names"
-                % (self._run_str(), key)
+                f"Invalid {self._run_str()} key '{key}'. Keys must be valid variable names"
             )
 
         if key not in self.list_runs(samples):
@@ -235,8 +234,7 @@ class Run(Configurable):
 
         if not overwrite:
             raise ValueError(
-                "%s with key '%s' already exists"
-                % (self._run_str().capitalize(), key)
+                f"{self._run_str().capitalize()} with key '{key}' already exists"
             )
 
         try:
@@ -357,8 +355,7 @@ class Run(Configurable):
                 cls.delete_run(samples, key)
             else:
                 raise ValueError(
-                    "%s with key '%s' already exists"
-                    % (cls._run_str().capitalize(), key)
+                    f"{cls._run_str().capitalize()} with key '{key}' already exists"
                 )
 
         dataset_doc = samples._root_dataset._doc
@@ -420,8 +417,7 @@ class Run(Configurable):
                 run_doc.results.delete()
             else:
                 raise ValueError(
-                    "%s with key '%s' already has results"
-                    % (cls._run_str().capitalize(), key)
+                    f"{cls._run_str().capitalize()} with key '{key}' already has results"
                 )
 
         if run_results is None:
@@ -544,10 +540,11 @@ class Run(Configurable):
             if _key == key:
                 continue
 
-            for field in cls._get_run_fields(samples, _key):
-                if "." in field and field.startswith(root_fields):
-                    _exclude_fields.append(field)
-
+            _exclude_fields.extend(
+                field
+                for field in cls._get_run_fields(samples, _key)
+                if "." in field and field.startswith(root_fields)
+            )
         if _exclude_fields:
             view = view.exclude_fields(_exclude_fields)
 
@@ -606,9 +603,7 @@ class Run(Configurable):
         run_docs = getattr(dataset_doc, cls._runs_field())
         run_doc = run_docs.get(key, None)
         if run_doc is None:
-            raise ValueError(
-                "Dataset has no %s key '%s'" % (cls._run_str(), key)
-            )
+            raise ValueError(f"Dataset has no {cls._run_str()} key '{key}'")
 
         return run_doc
 

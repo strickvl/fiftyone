@@ -55,13 +55,11 @@ async def dispatch_event(
         global _state
         _state = event.state
 
-    events = []
-    for listener in _listeners[event.get_event_name()]:
-        if listener.subscription == subscription:
-            continue
-
-        events.append(listener.queue.put((datetime.now(), event)))
-
+    events = [
+        listener.queue.put((datetime.now(), event))
+        for listener in _listeners[event.get_event_name()]
+        if listener.subscription != subscription
+    ]
     await asyncio.gather(*events)
 
 
@@ -103,11 +101,11 @@ async def add_event_listener(
                 )
                 break
 
-            events: t.List[t.Tuple[datetime, EventType]] = []
-            for _, listener in data.request_listeners:
-                if listener.queue.qsize():
-                    events.append(listener.queue.get_nowait())
-
+            events: t.List[t.Tuple[datetime, EventType]] = [
+                listener.queue.get_nowait()
+                for _, listener in data.request_listeners
+                if listener.queue.qsize()
+            ]
             events = sorted(events, key=lambda event: event[0])
 
             for (_, event) in events:
@@ -180,11 +178,11 @@ async def dispatch_polling_event_listener(
     if not listeners:
         raise ValueError("no listeners")
 
-    events: t.List[t.Tuple[datetime, EventType]] = []
-    for _, listener in listeners:
-        if listener.queue.qsize():
-            events.append(listener.queue.get_nowait())
-
+    events: t.List[t.Tuple[datetime, EventType]] = [
+        listener.queue.get_nowait()
+        for _, listener in listeners
+        if listener.queue.qsize()
+    ]
     events = sorted(events, key=lambda event: event[0])
 
     return {

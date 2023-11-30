@@ -252,7 +252,7 @@ class ActivityNetDatasetImporter(
                 else:
                     self._uuids = self._preprocess_list(all_sample_ids)
 
-                self._uuids = ["v_" + i for i in self._uuids]
+                self._uuids = [f"v_{i}" for i in self._uuids]
                 sample_ids = self._uuids
 
             labels = info.format_annotations([i[2:] for i in sample_ids])
@@ -312,12 +312,8 @@ class ActivityNetDownloadConfig(object):
 
     @property
     def load_entire_split(self):
-        if self.split != "test":
-            classes = self.classes
-        else:
-            classes = None
-
-        return bool(
+        classes = self.classes if self.split != "test" else None
+        return (
             self.max_duration is None
             and self.max_samples is None
             and classes is None
@@ -330,8 +326,7 @@ class ActivityNetDownloadConfig(object):
     def validate_split(self):
         if self.split not in _SPLIT_MAP.keys():
             raise ValueError(
-                "Unsupported split '%s'; supported values are %s"
-                % (self.split, tuple(_SPLIT_MAP.keys()))
+                f"Unsupported split '{self.split}'; supported values are {tuple(_SPLIT_MAP.keys())}"
             )
 
     def validate_max_duration(self):
@@ -359,9 +354,7 @@ class ActivityNetDatasetManager(object):
         if self.version == "200":
             return self.a200_info
 
-        raise ValueError(
-            "Dataset version '%s' is not supported" % self.version
-        )
+        raise ValueError(f"Dataset version '{self.version}' is not supported")
 
     @property
     def all_classes(self):
@@ -388,9 +381,7 @@ class ActivityNetDatasetManager(object):
 
     def _process_source_zip(self, zip_name, source_dir, copy_files):
         zip_path = os.path.join(source_dir, zip_name)
-        must_extract = self._check_zip_requirement(zip_name)
-
-        if must_extract:
+        if must_extract := self._check_zip_requirement(zip_name):
             zip_path = os.path.join(source_dir, zip_name)
             etau.extract_archive(zip_path, delete_archive=True)
             base_name = zip_name.replace(".zip", "").replace(".tar.gz", "")
@@ -415,20 +406,13 @@ class ActivityNetDatasetManager(object):
             if "val" in zip_name:
                 splits.append("validation")
 
-        missing_splits = []
-        for split in splits:
-            missing_splits.append(
-                self._split_is_missing_videos(version, split)
-            )
-
+        missing_splits = [
+            self._split_is_missing_videos(version, split) for split in splits
+        ]
         return any(missing_splits)
 
     def _split_is_missing_videos(self, version, split):
-        if version == "100":
-            info = self.a100_info
-        else:
-            info = self.a200_info
-
+        info = self.a100_info if version == "100" else self.a200_info
         existing_samples = info.existing_split_sample_ids(split)
         num_existing_samples = len(existing_samples)
         num_required_samples = _NUM_TOTAL_SAMPLES[version][split]
@@ -441,11 +425,7 @@ class ActivityNetDatasetManager(object):
             self._process_files(videos_dir, copy_files)
             dir_list.append((videos_dir, None, None))
         else:
-            if "v1-2" in dir_name:
-                version = "100"
-            else:
-                version = "200"
-
+            version = "100" if "v1-2" in dir_name else "200"
             if "missing_files" in dir_name:
                 videos_dir = os.path.join(source_dir, dir_name)
                 dir_list.append((videos_dir, version, "test"))
@@ -454,7 +434,9 @@ class ActivityNetDatasetManager(object):
                 for split_dir in os.listdir(version_dir):
                     if split_dir == "train_val":
                         split = None
-                    if split_dir == "val":
+                        split = split_dir
+
+                    elif split_dir == "val":
                         split = "validation"
                     else:
                         split = split_dir
@@ -476,8 +458,7 @@ class ActivityNetDatasetManager(object):
             else:
                 general_dest_dir = self.a200_info.data_dir(split)
 
-        videos = os.listdir(videos_dir)
-        if videos:
+        if videos := os.listdir(videos_dir):
             with fou.ProgressBar() as pb:
                 for video in pb(videos):
                     video_fn = os.path.splitext(video)[0]
@@ -543,7 +524,6 @@ class ActivityNetDatasetManager(object):
 
         requested_sample_ids = []
         requested_num = max_samples
-        num_downloaded_samples = 0
         set_downloaded_ids = set(prev_downloaded_ids)
 
         if shuffle and seed is not None:
@@ -585,7 +565,7 @@ class ActivityNetDatasetManager(object):
         )
         requested_sample_ids.extend(downloaded_samples)
         num_downloaded = len(downloaded_samples)
-        num_downloaded_samples += num_downloaded
+        num_downloaded_samples = 0 + num_downloaded
         if requested_num is not None:
             requested_num -= num_downloaded
 
@@ -615,13 +595,7 @@ class ActivityNetDatasetManager(object):
             if shuffle:
                 random.shuffle(ids)
 
-            if requested_num is not None:
-                requested_sample_ids = ids[:requested_num]
-            else:
-                requested_sample_ids = ids
-
-            return requested_sample_ids
-
+            return ids[:requested_num] if requested_num is not None else ids
         return []
 
     def _download_requested_samples(
@@ -632,16 +606,13 @@ class ActivityNetDatasetManager(object):
             if shuffle:
                 random.shuffle(ids)
 
-            downloaded_ids = self._separate_versions_and_attempt_to_download(
+            return self._separate_versions_and_attempt_to_download(
                 ids,
                 class_samples,
                 requested_num,
                 num_workers,
                 split,
             )
-
-            return downloaded_ids
-
         return []
 
     def _separate_versions_and_attempt_to_download(
@@ -657,10 +628,9 @@ class ActivityNetDatasetManager(object):
         a200_ids = list(set(ids) - set(a100_ids))
 
         downloaded_ids = []
-        num_a100_ids = len(a100_ids)
         remaining_samples = num_samples
 
-        if num_a100_ids:
+        if num_a100_ids := len(a100_ids):
             if num_samples is None:
                 num_to_download = num_a100_ids
             else:
@@ -702,7 +672,7 @@ class ActivityNetDatasetManager(object):
         download_paths = []
         for sample_id in ids:
             sample_info = samples_info[sample_id]
-            download_path = os.path.join(videos_dir, "v_%s.mp4" % sample_id)
+            download_path = os.path.join(videos_dir, f"v_{sample_id}.mp4")
             download_urls.append(sample_info["url"])
             download_paths.append(download_path)
 
@@ -714,18 +684,11 @@ class ActivityNetDatasetManager(object):
             num_workers=num_workers,
         )
         downloaded_ids = [ids[ind] for ind in downloaded.keys()]
-        errors_dict = {}
-        for ind, error in errors.items():
-            errors_dict[download_urls[ind]] = error
-
+        errors_dict = {download_urls[ind]: error for ind, error in errors.items()}
         return downloaded_ids, errors_dict
 
     def _merge_and_write_errors(self, download_errors, error_path):
-        if os.path.isfile(error_path):
-            prev_errors = etas.read_json(error_path)
-        else:
-            prev_errors = {}
-
+        prev_errors = etas.read_json(error_path) if os.path.isfile(error_path) else {}
         for video, e in download_errors.items():
             if e in prev_errors:
                 prev_errors[e].append(video)
@@ -762,12 +725,11 @@ class ActivityNetDatasetManager(object):
         to_rel = lambda fp, d: os.path.relpath(fp, start=d)
         to_uuid = lambda p: os.path.splitext(p)[0]
         data_path = info.data_dir(split)
-        data_map = {
+        return {
             to_uuid(p): to_rel(os.path.join(data_path, p), start_dir)
             for p in etau.list_files(data_path, recursive=True)
             if not (p.endswith(".part") or p.endswith(".ytdl"))
         }
-        return data_map
 
     @classmethod
     def from_dataset_dir(cls, dataset_dir, version):
@@ -810,11 +772,7 @@ class ActivityNetInfo(object):
         # Sample contains any specified classes
         any_class_match = {}
 
-        if split:
-            activitynet_split = _SPLIT_MAP[split]
-        else:
-            activitynet_split = None
-
+        activitynet_split = _SPLIT_MAP[split] if split else None
         if classes is not None:
             class_set = set(classes)
 
@@ -837,9 +795,7 @@ class ActivityNetInfo(object):
             if classes is None:
                 any_class_match[sample_id] = anno_info
             else:
-                anno_labels = set(
-                    [a["label"] for a in anno_info["annotations"]]
-                )
+                anno_labels = {a["label"] for a in anno_info["annotations"]}
                 if class_set.issubset(anno_labels):
                     all_class_match[sample_id] = anno_info
                 elif class_set & anno_labels:
@@ -855,21 +811,15 @@ class ActivityNetInfo(object):
                     "Skipping the split..."
                 )
 
-            bad_classes = list(set(classes) - set(self.all_classes))
-            if bad_classes:
+            if bad_classes := list(set(classes) - set(self.all_classes)):
                 raise ValueError(
-                    "The following classes were specified but do not exist in "
-                    "the dataset; %s" % bad_classes,
+                    f"The following classes were specified but do not exist in the dataset; {bad_classes}"
                 )
 
         return classes
 
     def format_annotations(self, sample_ids, split=None):
-        if split:
-            activitynet_split = _SPLIT_MAP[split]
-        else:
-            activitynet_split = None
-
+        activitynet_split = _SPLIT_MAP[split] if split else None
         labels = {}
         for anno_id, anno_info in self.raw_annotations["database"].items():
             if sample_ids is not None and anno_id not in sample_ids:
@@ -886,15 +836,14 @@ class ActivityNetInfo(object):
                     {"label": target, "timestamps": timestamps}
                 )
 
-            sample_id = "v_" + anno_id
+            sample_id = f"v_{anno_id}"
             labels[sample_id] = fo_anno_labels
 
-        fo_annots = {
+        return {
             "classes": self.all_classes,
             "labels": labels,
             "taxonomy": self.taxonomy,
         }
-        return fo_annots
 
 
 class ActivityNetSplitInfo(ActivityNetInfo):
@@ -1007,7 +956,7 @@ class ActivityNetDatasetInfo(ActivityNetInfo):
 
     @property
     def dataset_dir(self):
-        return os.path.join(self.foz_dir, "activitynet-%s" % self.version)
+        return os.path.join(self.foz_dir, f"activitynet-{self.version}")
 
     @property
     def raw_anno_path(self):
@@ -1076,8 +1025,7 @@ class ActivityNetDatasetInfo(ActivityNetInfo):
 
     @classmethod
     def _get_version_from_dirname(cls, an_dirname):
-        version = an_dirname.split("-")[-1]
-        return version
+        return an_dirname.split("-")[-1]
 
     def get_sample_split(self, sample_id):
         database = self.raw_annotations["database"]
@@ -1101,10 +1049,7 @@ class ActivityNet100DatasetInfo(ActivityNetDatasetInfo):
         return "100"
 
     def get_sample_dataset_version(self, sample_id):
-        if sample_id in self.all_sample_ids:
-            return "100"
-
-        return "200"
+        return "100" if sample_id in self.all_sample_ids else "200"
 
     def update_existing_sample_ids(self):
         self._splitwise_existing_sample_ids = self._get_existing_sample_ids()
@@ -1125,10 +1070,7 @@ class ActivityNet200DatasetInfo(ActivityNetDatasetInfo):
         return "200"
 
     def get_sample_dataset_version(self, sample_id):
-        if sample_id in self.a100_info.all_sample_ids:
-            return "100"
-
-        return "200"
+        return "100" if sample_id in self.a100_info.all_sample_ids else "200"
 
     def update_existing_sample_ids(self):
         self._splitwise_existing_sample_ids = self._get_existing_sample_ids()
@@ -1153,9 +1095,7 @@ def _get_all_classes(taxonomy):
         classes.add(node_name)
         parents.add(parent_name)
 
-    classes = sorted(classes - parents)
-
-    return classes
+    return sorted(classes - parents)
 
 
 def _flatten_list(l):

@@ -70,7 +70,7 @@ async def _generate_results(samples):
     metadatas = await asyncio.gather(
         *[fosm.get_metadata(f, metadata=metadata_map[f]) for f in filepaths]
     )
-    metadata_map = {f: m for f, m in zip(filepaths, metadatas)}
+    metadata_map = dict(zip(filepaths, metadatas))
 
     results = []
     for sample in samples:

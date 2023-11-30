@@ -153,26 +153,21 @@ class DatasetMixin(object):
 
     def get_field(self, field_name):
         if not self.has_field(field_name):
-            raise AttributeError(
-                "%s has no field '%s'" % (self._doc_name(), field_name)
-            )
+            raise AttributeError(f"{self._doc_name()} has no field '{field_name}'")
 
         return super().get_field(field_name)
 
     def set_field(self, field_name, value, create=False):
         if field_name.startswith("_"):
             raise ValueError(
-                "Invalid field name '%s'. Field names cannot start with '_'"
-                % field_name
+                f"Invalid field name '{field_name}'. Field names cannot start with '_'"
             )
 
         if not self.has_field(field_name):
             if create:
                 self.add_implied_field(field_name, value)
             else:
-                raise ValueError(
-                    "%s has no field '%s'" % (self._doc_name(), field_name)
-                )
+                raise ValueError(f"{self._doc_name()} has no field '{field_name}'")
         elif value is not None:
             self._fields[field_name].validate(value)
 
@@ -207,9 +202,7 @@ class DatasetMixin(object):
             ftype = fof.Field
 
         if not issubclass(ftype, fof.Field):
-            raise ValueError(
-                "Field type %s must be subclass of %s" % (ftype, fof.Field)
-            )
+            raise ValueError(f"Field type {ftype} must be subclass of {fof.Field}")
 
         if embedded_doc_type is not None and not issubclass(
             ftype, fof.EmbeddedDocumentField
@@ -263,9 +256,7 @@ class DatasetMixin(object):
                 add_fields.append(field_name)
 
         if not expand_schema and add_fields:
-            raise ValueError(
-                "%s fields %s do not exist" % (cls._doc_name(), add_fields)
-            )
+            raise ValueError(f"{cls._doc_name()} fields {add_fields} do not exist")
 
         for field_name in add_fields:
             field = schema[field_name]
@@ -338,16 +329,12 @@ class DatasetMixin(object):
         for field_name in field_names:
             if field_name in default_fields:
                 raise ValueError(
-                    "Cannot rename default %s field '%s'"
-                    % (cls._doc_name(), field_name)
+                    f"Cannot rename default {cls._doc_name()} field '{field_name}'"
                 )
 
             # pylint: disable=no-member
             if field_name not in cls._fields:
-                raise AttributeError(
-                    "%s field '%s' does not exist"
-                    % (cls._doc_name(), field_name)
-                )
+                raise AttributeError(f"{cls._doc_name()} field '{field_name}' does not exist")
 
         if not field_names:
             return
@@ -396,10 +383,7 @@ class DatasetMixin(object):
         for field_name in field_names:
             # pylint: disable=no-member
             if field_name not in cls._fields:
-                raise AttributeError(
-                    "%s field '%s' does not exist"
-                    % (cls._doc_name(), field_name)
-                )
+                raise AttributeError(f"{cls._doc_name()} field '{field_name}' does not exist")
 
         for field_name, new_field_name in zip(field_names, new_field_names):
             cls._clone_field_schema(field_name, new_field_name)
@@ -485,14 +469,12 @@ class DatasetMixin(object):
             # pylint: disable=no-member
             if field_name in default_fields:
                 fou.handle_error(
-                    ValueError(
-                        "Cannot delete default field '%s'" % field_name
-                    ),
+                    ValueError(f"Cannot delete default field '{field_name}'"),
                     error_level,
                 )
             elif field_name not in cls._fields:
                 fou.handle_error(
-                    AttributeError("Field '%s' does not exist" % field_name),
+                    AttributeError(f"Field '{field_name}' does not exist"),
                     error_level,
                 )
             else:
@@ -520,7 +502,7 @@ class DatasetMixin(object):
 
     @classmethod
     def _rename_fields_simple(cls, field_names, new_field_names):
-        rename_expr = {k: v for k, v in zip(field_names, new_field_names)}
+        rename_expr = dict(zip(field_names, new_field_names))
 
         collection_name = cls.__name__
         collection = get_db_conn()[collection_name]
@@ -549,11 +531,7 @@ class DatasetMixin(object):
             else:
                 base, leaf = field_name, ""
 
-            if new_base == base:
-                expr = F(leaf)
-            else:
-                expr = F("$" + field_name)
-
+            expr = F(leaf) if new_base == base else F(f"${field_name}")
             view = view.set_field(new_field_name, expr)
 
         view = view.mongo([{"$unset": field_names}])
@@ -563,12 +541,12 @@ class DatasetMixin(object):
         # operator will always overwrite top-level fields of each document, so
         # we limit the damage by projecting onto the modified fields
         #
-        field_roots = list(set(root(f) for f in field_names + new_field_names))
+        field_roots = list({root(f) for f in field_names + new_field_names})
         view.save(field_roots)
 
     @classmethod
     def _clone_fields_simple(cls, field_names, new_field_names):
-        set_expr = {v: "$" + k for k, v in zip(field_names, new_field_names)}
+        set_expr = {v: f"${k}" for k, v in zip(field_names, new_field_names)}
 
         collection_name = cls.__name__
         collection = get_db_conn()[collection_name]
@@ -597,11 +575,7 @@ class DatasetMixin(object):
             else:
                 base, leaf = field_name, ""
 
-            if new_base == base:
-                expr = F(leaf)
-            else:
-                expr = F("$" + field_name)
-
+            expr = F(leaf) if new_base == base else F(f"${field_name}")
             view = view.set_field(new_field_name, expr)
 
         #
@@ -609,7 +583,7 @@ class DatasetMixin(object):
         # operator will always overwrite top-level fields of each document, so
         # we limit the damage by projecting onto the modified fields
         #
-        field_roots = list(set(root(f) for f in new_field_names))
+        field_roots = list({root(f) for f in new_field_names})
         view.save(field_roots)
 
     @classmethod
@@ -637,7 +611,7 @@ class DatasetMixin(object):
         # operator will always overwrite top-level fields of each document, so
         # we limit the damage by projecting onto the modified fields
         #
-        field_roots = list(set(root(f) for f in field_names))
+        field_roots = list({root(f) for f in field_names})
         view.save(field_roots)
 
     @classmethod
@@ -674,9 +648,7 @@ class DatasetMixin(object):
     ):
         # pylint: disable=no-member
         if field_name in cls._fields:
-            raise ValueError(
-                "%s field '%s' already exists" % (cls._doc_name(), field_name)
-            )
+            raise ValueError(f"{cls._doc_name()} field '{field_name}' already exists")
 
         field = create_field(
             field_name,
@@ -800,8 +772,6 @@ class DatasetMixin(object):
         """Extracts updates for filtered list fields that need to be updated
         by ID, not relative position (index).
         """
-        extra_updates = []
-
         #
         # Check for illegal modifications
         # Match the list, or an indexed item in the list, but not a field
@@ -817,23 +787,17 @@ class DatasetMixin(object):
                         if k.startswith(ff) and not k[len(ff) :].lstrip(
                             "."
                         ).count("."):
-                            raise ValueError(
-                                "Modifying root of filtered list field '%s' "
-                                "is not allowed" % k
-                            )
+                            raise ValueError(f"Modifying root of filtered list field '{k}' is not allowed")
 
+        extra_updates = []
         if filtered_fields and "$set" in update_doc:
             d = update_doc["$set"]
             del_keys = []
 
             for k, v in d.items():
-                filtered_field = None
-                for ff in filtered_fields:
-                    if k.startswith(ff):
-                        filtered_field = ff
-                        break
-
-                if filtered_field:
+                if filtered_field := next(
+                    (ff for ff in filtered_fields if k.startswith(ff)), None
+                ):
                     element_id, el_filter = self._parse_id_and_array_filter(
                         k, filtered_field
                     )
@@ -959,7 +923,7 @@ class NoDatasetMixin(object):
 
             return value
 
-        raise ValueError("Field '%s' has no default" % field)
+        raise ValueError(f"Field '{field}' has no default")
 
     def has_field(self, field_name):
         try:
@@ -972,20 +936,15 @@ class NoDatasetMixin(object):
         try:
             return self._data[field_name]
         except KeyError:
-            raise AttributeError(
-                "%s has no field '%s'" % (self._doc_name(), field_name)
-            )
+            raise AttributeError(f"{self._doc_name()} has no field '{field_name}'")
 
     def set_field(self, field_name, value, create=False):
         if not create and not self.has_field(field_name):
-            raise ValueError(
-                "%s has no field '%s'" % (self._doc_name(), field_name)
-            )
+            raise ValueError(f"{self._doc_name()} has no field '{field_name}'")
 
         if field_name.startswith("_"):
             raise ValueError(
-                "Invalid field name '%s'. Field names cannot start with '_'"
-                % field_name
+                f"Invalid field name '{field_name}'. Field names cannot start with '_'"
             )
 
         self._data[field_name] = value
@@ -997,9 +956,7 @@ class NoDatasetMixin(object):
             return
 
         if not self.has_field(field_name):
-            raise ValueError(
-                "%s has no field '%s'" % (self._doc_name(), field_name)
-            )
+            raise ValueError(f"{self._doc_name()} has no field '{field_name}'")
 
         self._data.pop(field_name)
 
@@ -1056,12 +1013,7 @@ def _serialize_value(value, extended=False):
     if isinstance(value, np.ndarray):
         # VectorField/ArrayField
         binary = fou.serialize_numpy_array(value)
-        if not extended:
-            return binary
-
-        # @todo improve this
-        return json.loads(json_util.dumps(Binary(binary)))
-
+        return binary if not extended else json.loads(json_util.dumps(Binary(binary)))
     if isinstance(value, (list, tuple)):
         # ListField
         return [_serialize_value(v, extended=extended) for v in value]
@@ -1102,7 +1054,7 @@ def _get_db_field(field, new_field_name):
 
     # This is hacky, but we must account for the fact that ObjectIdField often
     # uses db_field = "_<field_name>"
-    if field.db_field == "_" + field.name:
-        return "_" + new_field_name
+    if field.db_field == f"_{field.name}":
+        return f"_{new_field_name}"
 
     return new_field_name

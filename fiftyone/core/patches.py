@@ -137,10 +137,7 @@ class _PatchesView(fov.DatasetView):
 
     @property
     def _id_field(self):
-        if self._is_frames:
-            return "frame_id"
-
-        return "sample_id"
+        return "frame_id" if self._is_frames else "sample_id"
 
     @property
     def _label_fields(self):
@@ -156,7 +153,7 @@ class _PatchesView(fov.DatasetView):
 
     @property
     def name(self):
-        return self.dataset_name + "-patches"
+        return f"{self.dataset_name}-patches"
 
     def _get_default_sample_fields(
         self, include_private=False, use_db_fields=False
@@ -168,9 +165,7 @@ class _PatchesView(fov.DatasetView):
         extras = ["_sample_id" if use_db_fields else "sample_id"]
 
         if self._is_frames:
-            extras.append("_frame_id" if use_db_fields else "frame_id")
-            extras.append("frame_number")
-
+            extras.extend(("_frame_id" if use_db_fields else "frame_id", "frame_number"))
         return fields + tuple(extras)
 
     def _get_default_indexes(self, frames=False):
@@ -189,11 +184,7 @@ class _PatchesView(fov.DatasetView):
 
         # The `set_values()` operation could change the contents of this view,
         # so we first record the sample IDs that need to be synced
-        if must_sync and self._stages:
-            ids = self.values("_id")
-        else:
-            ids = None
-
+        ids = self.values("_id") if must_sync and self._stages else None
         super().set_values(field_name, *args, **kwargs)
 
         if must_sync:
@@ -334,9 +325,7 @@ class _PatchesView(fov.DatasetView):
         if delete:
             all_ids = self._patches_dataset.values(label_id_path, unwind=True)
             self_ids = self.values(label_id_path, unwind=True)
-            del_ids = set(all_ids) - set(self_ids)
-
-            if del_ids:
+            if del_ids := set(all_ids) - set(self_ids):
                 self._source_collection._delete_labels(
                     ids=del_ids, fields=field
                 )
@@ -344,8 +333,7 @@ class _PatchesView(fov.DatasetView):
     def _sync_source_keep_fields(self):
         src_schema = self.get_field_schema()
 
-        del_fields = set(self._label_fields) - set(src_schema.keys())
-        if del_fields:
+        if del_fields := set(self._label_fields) - set(src_schema.keys()):
             self._source_collection.exclude_fields(del_fields).keep_fields()
 
 
@@ -552,7 +540,7 @@ def _get_single_label_field_type(sample_collection, field):
     label_type = sample_collection._get_label_field_type(field)
 
     if label_type not in _SINGLE_TYPES_MAP:
-        raise ValueError("Unsupported label field type %s" % label_type)
+        raise ValueError(f"Unsupported label field type {label_type}")
 
     return _SINGLE_TYPES_MAP[label_type]
 
@@ -612,7 +600,6 @@ def make_evaluation_patches_dataset(
     """
     # Parse evaluation info
     eval_info = sample_collection.get_evaluation_info(eval_key)
-    pred_field = eval_info.config.pred_field
     gt_field = eval_info.config.gt_field
     if hasattr(eval_info.config, "iscrowd"):
         crowd_attr = eval_info.config.iscrowd
@@ -621,11 +608,11 @@ def make_evaluation_patches_dataset(
 
     is_frame_patches = sample_collection._is_frames
 
+    pred_field = eval_info.config.pred_field
     if is_frame_patches:
         if not pred_field.startswith(sample_collection._FRAMES_PREFIX):
             raise ValueError(
-                "Cannot extract evaluation patches for sample-level "
-                "evaluation '%s' from a frames view" % eval_key
+                f"Cannot extract evaluation patches for sample-level evaluation '{eval_key}' from a frames view"
             )
 
         pred_field = pred_field[len(sample_collection._FRAMES_PREFIX) :]
@@ -736,7 +723,7 @@ def _make_patches_view(
 ):
     label_type = sample_collection._get_label_field_type(field)
     if issubclass(label_type, _PATCHES_TYPES):
-        list_field = field + "." + label_type._LABEL_LIST_FIELD
+        list_field = f"{field}.{label_type._LABEL_LIST_FIELD}"
     else:
         raise ValueError(
             "Invalid label field type %s. Extracting patches is only "
@@ -750,7 +737,7 @@ def _make_patches_view(
         "filepath": True,
         "metadata": True,
         "tags": True,
-        field + "._cls": True,
+        f"{field}._cls": True,
         list_field: True,
     }
 
@@ -766,15 +753,15 @@ def _make_patches_view(
 
     pipeline = [
         {"$project": project},
-        {"$unwind": "$" + list_field},
+        {"$unwind": f"${list_field}"},
         {"$set": {"_rand": {"$rand": {}}}},
-        {"$set": {"_id": "$" + list_field + "._id"}},
+        {"$set": {"_id": f"${list_field}._id"}},
     ]
 
     if keep_label_lists:
-        pipeline.append({"$set": {list_field: ["$" + list_field]}})
+        pipeline.append({"$set": {list_field: [f"${list_field}"]}})
     else:
-        pipeline.append({"$set": {field: "$" + list_field}})
+        pipeline.append({"$set": {field: f"${list_field}"}})
 
     return sample_collection.mongo(pipeline)
 
@@ -787,9 +774,9 @@ def _make_eval_view(
     skip_matched=False,
     crowd_attr=None,
 ):
-    eval_type = field + "." + eval_key
-    eval_id = field + "." + eval_key + "_id"
-    eval_iou = field + "." + eval_key + "_iou"
+    eval_type = f"{field}.{eval_key}"
+    eval_id = f"{field}.{eval_key}_id"
+    eval_iou = f"{field}.{eval_key}_iou"
 
     view = _make_patches_view(
         sample_collection, field, other_fields=other_fields
@@ -802,8 +789,8 @@ def _make_eval_view(
                     "$match": {
                         "$expr": {
                             "$or": [
-                                {"$eq": ["$" + eval_id, _NO_MATCH_ID]},
-                                {"$not": {"$gt": ["$" + eval_id, None]}},
+                                {"$eq": [f"${eval_id}", _NO_MATCH_ID]},
+                                {"$not": {"$gt": [f"${eval_id}", None]}},
                             ]
                         }
                     }
@@ -811,15 +798,13 @@ def _make_eval_view(
             ]
         )
 
-    view = view.mongo(
-        [{"$set": {"type": "$" + eval_type, "iou": "$" + eval_iou}}]
-    )
+    view = view.mongo([{"$set": {"type": f"${eval_type}", "iou": f"${eval_iou}"}}])
 
     if crowd_attr is not None:
-        crowd_path1 = "$" + field + "." + crowd_attr
+        crowd_path1 = f"${field}.{crowd_attr}"
 
         # @todo can remove this when `Attributes` are deprecated
-        crowd_path2 = "$" + field + ".attributes." + crowd_attr + ".value"
+        crowd_path2 = f"${field}.attributes.{crowd_attr}.value"
 
         view = view.mongo(
             [
@@ -847,17 +832,17 @@ def _make_eval_view(
 
 
 def _upgrade_labels(view, field):
-    tmp_field = "_" + field
+    tmp_field = f"_{field}"
     label_type = view._get_label_field_type(field)
     return view.mongo(
         [
-            {"$set": {tmp_field: "$" + field}},
+            {"$set": {tmp_field: f"${field}"}},
             {"$unset": field},
             {
                 "$set": {
                     field: {
                         "_cls": label_type.__name__,
-                        label_type._LABEL_LIST_FIELD: ["$" + tmp_field],
+                        label_type._LABEL_LIST_FIELD: [f"${tmp_field}"],
                     }
                 }
             },
@@ -869,29 +854,29 @@ def _upgrade_labels(view, field):
 def _merge_matched_labels(dataset, src_collection, eval_key, field):
     field_type = src_collection._get_label_field_type(field)
 
-    list_field = field + "." + field_type._LABEL_LIST_FIELD
-    eval_id = eval_key + "_id"
-    eval_field = list_field + "." + eval_id
+    list_field = f"{field}.{field_type._LABEL_LIST_FIELD}"
+    eval_id = f"{eval_key}_id"
+    eval_field = f"{list_field}.{eval_id}"
 
     pipeline = src_collection._pipeline()
     pipeline.extend(
         [
             {"$project": {list_field: True}},
-            {"$unwind": "$" + list_field},
+            {"$unwind": f"${list_field}"},
             {
                 "$match": {
                     "$expr": {
                         "$and": [
-                            {"$gt": ["$" + eval_field, None]},
-                            {"$ne": ["$" + eval_field, _NO_MATCH_ID]},
+                            {"$gt": [f"${eval_field}", None]},
+                            {"$ne": [f"${eval_field}", _NO_MATCH_ID]},
                         ]
                     }
                 }
             },
             {
                 "$group": {
-                    "_id": {"$toObjectId": "$" + eval_field},
-                    "_labels": {"$push": "$" + list_field},
+                    "_id": {"$toObjectId": f"${eval_field}"},
+                    "_labels": {"$push": f"${list_field}"},
                 }
             },
             {

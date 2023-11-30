@@ -47,7 +47,7 @@ class CustomCardItemDirective(Directive):
                 header=header,
                 description=description,
                 link=link,
-                image='<img src="%s">' % image,
+                image=f'<img src="{image}">',
                 tags=tags,
             )
         else:
@@ -143,7 +143,7 @@ class CustomCalloutItemDirective(Directive):
                 button_link=button_link,
                 classes=classes,
                 attributes=attributes,
-                image='<img src="%s">' % image,
+                image=f'<img src="{image}">',
             )
 
         else:

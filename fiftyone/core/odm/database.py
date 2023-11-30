@@ -188,8 +188,7 @@ def establish_db_conn(config):
     config = get_db_config()
     if foc.CLIENT_TYPE != config.type:
         raise ConnectionError(
-            "Cannot connect to database type '%s' with client type '%s'"
-            % (config.type, foc.CLIENT_TYPE)
+            f"Cannot connect to database type '{config.type}' with client type '{foc.CLIENT_TYPE}'"
         )
 
 
@@ -432,10 +431,11 @@ def drop_orphan_collections(dry_run=False):
     colls_in_use = set()
     for name in list_datasets():
         dataset_dict = conn.datasets.find_one({"name": name})
-        sample_coll_name = dataset_dict.get("sample_collection_name", None)
-        if sample_coll_name:
+        if sample_coll_name := dataset_dict.get(
+            "sample_collection_name", None
+        ):
             colls_in_use.add(sample_coll_name)
-            colls_in_use.add("frames." + sample_coll_name)
+            colls_in_use.add(f"frames.{sample_coll_name}")
 
     # Only collections with these prefixes may be deleted
     coll_prefixes = ("samples.", "frames.", "patches.", "clips.")
@@ -677,15 +677,13 @@ def delete_dataset(name, dry_run=False):
         if not dry_run:
             conn.drop_collection(sample_collection_name)
 
-    frame_collection_name = "frames." + sample_collection_name
+    frame_collection_name = f"frames.{sample_collection_name}"
     if frame_collection_name in collections:
         _logger.info("Dropping collection '%s'", frame_collection_name)
         if not dry_run:
             conn.drop_collection(frame_collection_name)
 
-    delete_results = _get_result_ids(dataset_dict)
-
-    if delete_results:
+    if delete_results := _get_result_ids(dataset_dict):
         _logger.info("Deleting %d run result(s)", len(delete_results))
         if not dry_run:
             _delete_run_results(delete_results)
@@ -982,15 +980,12 @@ def delete_evaluations(name, dry_run=False):
 
 
 def _get_logger(dry_run=False):
-    if dry_run:
-        return _DryRunLoggerAdapter(logger, {})
-
-    return logger
+    return _DryRunLoggerAdapter(logger, {}) if dry_run else logger
 
 
 class _DryRunLoggerAdapter(logging.LoggerAdapter):
     def process(self, msg, kwargs):
-        msg = "(dry run) " + msg
+        msg = f"(dry run) {msg}"
         return msg, kwargs
 
 

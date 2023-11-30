@@ -22,10 +22,10 @@ logger = logging.getLogger(__name__)
 def generate_redirects(app):
     path = os.path.join(app.srcdir, app.config.redirects_file)
     if not os.path.exists(path):
-        logger.warning("Could not find redirects file at '%s'" % path)
+        logger.warning(f"Could not find redirects file at '{path}'")
         return
 
-    if not type(app.builder) == builders.StandaloneHTMLBuilder:
+    if type(app.builder) != builders.StandaloneHTMLBuilder:
         logger.warning(
             "Page redirection is only supported for the 'html' builder. "
             "Skipping..."
@@ -33,27 +33,23 @@ def generate_redirects(app):
         return
 
     with open(path) as redirects:
-        for line in redirects.readlines():
+        for line in redirects:
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
 
             from_path, to_path = line.split()
 
-            from_html_path = os.path.splitext(from_path)[0] + ".html"
+            from_html_path = f"{os.path.splitext(from_path)[0]}.html"
 
-            to_path_prefix = (
-                "..%s"
-                % os.path.sep
-                * (len(from_html_path.split(os.path.sep)) - 1)
+            to_path_prefix = f"..{os.path.sep}" * (
+                len(from_html_path.split(os.path.sep)) - 1
             )
             to_html_path = (
                 to_path_prefix + os.path.splitext(to_path)[0] + ".html"
             )
 
-            logger.info(
-                "Redirecting '%s' to '%s'" % (from_html_path, to_html_path)
-            )
+            logger.info(f"Redirecting '{from_html_path}' to '{to_html_path}'")
 
             redirect_path = os.path.join(app.builder.outdir, from_html_path)
             etau.write_file(

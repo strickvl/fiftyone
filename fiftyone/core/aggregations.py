@@ -147,15 +147,8 @@ class Aggregation(object):
         if sample_collection.media_type != fom.VIDEO:
             return False
 
-        if self._field_name is not None:
-            expr = F(self._field_name)
-        else:
-            expr = self._expr
-
-        if expr is not None:
-            return foe.is_frames_expr(expr)
-
-        return False
+        expr = F(self._field_name) if self._field_name is not None else self._expr
+        return foe.is_frames_expr(expr) if expr is not None else False
 
 
 class AggregationError(Exception):
@@ -290,11 +283,7 @@ class Bounds(Aggregation):
 
         self._field_type = field_type
 
-        if id_to_str:
-            value = {"$toString": "$" + path}
-        else:
-            value = "$" + path
-
+        value = {"$toString": f"${path}"} if id_to_str else f"${path}"
         if self._safe and self._count_nonfinites:
             safe_value = _to_safe_expr(F(value), self._field_type).to_mongo()
         else:
@@ -455,7 +444,7 @@ class Count(Aggregation):
         )
 
         if sample_collection.media_type != fom.VIDEO or path != "frames":
-            pipeline.append({"$match": {"$expr": {"$gt": ["$" + path, None]}}})
+            pipeline.append({"$match": {"$expr": {"$gt": [f"${path}", None]}}})
 
         pipeline.append({"$count": "count"})
 
@@ -577,10 +566,7 @@ class CountValues(Aggregation):
         Returns:
             ``{}``
         """
-        if self._first is not None:
-            return 0, []
-
-        return {}
+        return (0, []) if self._first is not None else {}
 
     def parse_result(self, d):
         """Parses the output of :meth:`to_mongo`.
@@ -591,24 +577,20 @@ class CountValues(Aggregation):
         Returns:
             a dict mapping values to counts
         """
-        if self._field_type is not None:
-            p = self._field_type.to_python
-        else:
-            p = lambda x: x
-
+        p = (lambda x: x) if self._field_type is None else self._field_type.to_python
         if self._first is not None:
-            count = d["count"]
-            if not count:
-                return (0, [])
+            if count := d["count"]:
+                return (
+                    count[0]["count"],
+                    [
+                        [p(i["k"]), i["count"]]
+                        for i in d["result"][0]["result"]
+                        if i["k"] is not None
+                    ],
+                )
 
-            return (
-                count[0]["count"],
-                [
-                    [p(i["k"]), i["count"]]
-                    for i in d["result"][0]["result"]
-                    if i["k"] is not None
-                ],
-            )
+            else:
+                return (0, [])
 
         return {p(i["k"]): i["count"] for i in d["result"]}
 
@@ -622,11 +604,7 @@ class CountValues(Aggregation):
 
         self._field_type = field_type
 
-        if id_to_str:
-            value = {"$toString": "$" + path}
-        else:
-            value = "$" + path
-
+        value = {"$toString": f"${path}"} if id_to_str else f"${path}"
         pipeline += [
             {"$group": {"_id": value, "count": {"$sum": 1}}},
         ]
@@ -818,13 +796,9 @@ class Distinct(Aggregation):
 
         self._field_type = field_type
 
-        if id_to_str:
-            value = {"$toString": "$" + path}
-        else:
-            value = "$" + path
-
+        value = {"$toString": f"${path}"} if id_to_str else f"${path}"
         pipeline += [
-            {"$match": {"$expr": {"$gt": ["$" + path, None]}}},
+            {"$match": {"$expr": {"$gt": [f"${path}", None]}}},
             {"$group": {"_id": None, "values": {"$addToSet": value}}},
             {"$unwind": "$values"},
             {"$sort": {"values": 1}},
@@ -983,11 +957,7 @@ class HistogramValues(Aggregation):
 
         self._field_type = field_type
 
-        if id_to_str:
-            value = {"$toString": "$" + path}
-        else:
-            value = "$" + path
-
+        value = {"$toString": f"${path}"} if id_to_str else f"${path}"
         if self._auto:
             pipeline.append(
                 {
@@ -1031,17 +1001,9 @@ class HistogramValues(Aggregation):
         if self._bins is not None and etau.is_container(self._bins):
             self._bins, self._is_datetime = _handle_dates(self._bins)
 
-        if self._bins is None:
-            bins = 10
-        else:
-            bins = int(self._bins)
-
+        bins = 10 if self._bins is None else int(self._bins)
         if self._auto:
-            if etau.is_numeric(bins):
-                self._num_bins = int(bins)
-            else:
-                self._num_bins = 10
-
+            self._num_bins = bins if etau.is_numeric(bins) else 10
             return
 
         if not etau.is_numeric(bins):
@@ -1216,11 +1178,7 @@ class Mean(Aggregation):
             safe=self._safe,
         )
 
-        if id_to_str:
-            value = {"$toString": "$" + path}
-        else:
-            value = "$" + path
-
+        value = {"$toString": f"${path}"} if id_to_str else f"${path}"
         pipeline.append({"$group": {"_id": None, "mean": {"$avg": value}}})
 
         return pipeline
@@ -1333,11 +1291,7 @@ class Std(Aggregation):
             safe=self._safe,
         )
 
-        if id_to_str:
-            value = {"$toString": "$" + path}
-        else:
-            value = "$" + path
-
+        value = {"$toString": f"${path}"} if id_to_str else f"${path}"
         op = "$stdDevSamp" if self._sample else "$stdDevPop"
         pipeline.append({"$group": {"_id": None, "std": {op: value}}})
 
@@ -1445,11 +1399,7 @@ class Sum(Aggregation):
             safe=self._safe,
         )
 
-        if id_to_str:
-            value = {"$toString": "$" + path}
-        else:
-            value = "$" + path
-
+        value = {"$toString": f"${path}"} if id_to_str else f"${path}"
         pipeline.append({"$group": {"_id": None, "sum": {"$sum": value}}})
 
         return pipeline
@@ -1616,11 +1566,7 @@ class Values(Aggregation):
         Returns:
             the list of field values
         """
-        if self._big_result:
-            values = [di[self._big_field] for di in d]
-        else:
-            values = d["values"]
-
+        values = [di[self._big_field] for di in d] if self._big_result else d["values"]
         if self._raw:
             return values
 
@@ -1678,11 +1624,7 @@ def _transform_values(values, fcn, level=1):
 def _make_extract_values_pipeline(
     path, list_fields, id_to_str, missing_value, big_result, big_field
 ):
-    if not list_fields:
-        root = path
-    else:
-        root = list_fields[0]
-
+    root = path if not list_fields else list_fields[0]
     expr = F().to_string() if id_to_str else F()
 
     # This is important, even if `missing_value` is None, since we need to
@@ -1701,20 +1643,16 @@ def _make_extract_values_pipeline(
             expr = _extract_list_values(inner_list_field, expr)
 
     if big_result:
-        return [{"$project": {big_field: expr.to_mongo(prefix="$" + root)}}]
+        return [{"$project": {big_field: expr.to_mongo(prefix=f"${root}")}}]
 
     return [
-        {"$project": {"value": expr.to_mongo(prefix="$" + root)}},
+        {"$project": {"value": expr.to_mongo(prefix=f"${root}")}},
         {"$group": {"_id": None, "values": {"$push": "$value"}}},
     ]
 
 
 def _extract_list_values(subfield, expr):
-    if subfield:
-        map_expr = F(subfield).apply(expr)
-    else:
-        map_expr = expr
-
+    map_expr = F(subfield).apply(expr) if subfield else expr
     return F().map(map_expr)
 
 
@@ -1793,7 +1731,23 @@ def _parse_field_and_expr(
     if id_to_str or type(field_type) in fof._PRIMITIVE_FIELDS:
         field_type = None
 
-    if keep_top_level:
+    if not keep_top_level and auto_unwind and is_frame_field:
+        pipeline.append({"$unwind": "$frames"})
+        if not root:
+            pipeline.extend(
+                [
+                    {"$project": {f"frames.{path}": True}},
+                    {"$replaceRoot": {"newRoot": "$frames"}},
+                ]
+            )
+    elif (
+        not keep_top_level
+        and auto_unwind
+        or not keep_top_level
+        and unwind_list_fields
+    ):
+        pipeline.append({"$project": {path: True}})
+    elif keep_top_level:
         if is_frame_field:
             if not root:
                 prefix = "frames."
@@ -1807,21 +1761,6 @@ def _parse_field_and_expr(
             other_list_fields = sorted([first_field] + other_list_fields)
 
         pipeline.append({"$project": {path: True}})
-    elif auto_unwind:
-        if is_frame_field:
-            pipeline.append({"$unwind": "$frames"})
-            if not root:
-                pipeline.extend(
-                    [
-                        {"$project": {"frames." + path: True}},
-                        {"$replaceRoot": {"newRoot": "$frames"}},
-                    ]
-                )
-        else:
-            pipeline.append({"$project": {path: True}})
-    elif unwind_list_fields:
-        pipeline.append({"$project": {path: True}})
-
     (
         _reduce_pipeline,
         _path,
@@ -1836,7 +1775,7 @@ def _parse_field_and_expr(
         other_list_fields = _other_list_fields
 
     for list_field in unwind_list_fields:
-        pipeline.append({"$unwind": "$" + list_field})
+        pipeline.append({"$unwind": f"${list_field}"})
 
     return path, pipeline, other_list_fields, id_to_str, field_type
 
@@ -1855,10 +1794,7 @@ def _to_safe_expr(expr, field_type):
         .if_else(None, F())
     )
 
-    if expr is None:
-        return to_finite
-
-    return expr.apply(to_finite)
+    return to_finite if expr is None else expr.apply(to_finite)
 
 
 def _handle_reduce_unwinds(path, unwind_list_fields, other_list_fields):
@@ -1964,7 +1900,7 @@ def _get_common_prefix(prefixes):
         if idx >= min_chunks:
             break
 
-        pre = [common + "." + c[idx] for c in chunks]
+        pre = [f"{common}.{c[idx]}" for c in chunks]
 
     return common
 
@@ -1977,7 +1913,7 @@ def _remove_prefix(expr, prefix):
         if isinstance(expr, foe.ViewField):
             if expr._expr == prefix:
                 expr._expr = ""
-            elif expr._expr.startswith(prefix + "."):
+            elif expr._expr.startswith(f"{prefix}."):
                 expr._expr = expr._expr[len(prefix) + 1 :]
         else:
             _remove_prefix(expr._expr, prefix)

@@ -104,9 +104,7 @@ class DatasetView(foc.SampleCollection):
             return next(iter(view))
         except StopIteration:
             field = "ID" if oid is not None else "filepath"
-            raise KeyError(
-                "No sample found with %s '%s'" % (field, id_filepath_slice)
-            )
+            raise KeyError(f"No sample found with {field} '{id_filepath_slice}'")
 
     def __copy__(self):
         return self.__class__(self.__dataset, _stages=deepcopy(self.__stages))
@@ -159,7 +157,7 @@ class DatasetView(foc.SampleCollection):
     @property
     def name(self):
         """The name of the view."""
-        return self.dataset_name + "-view"
+        return f"{self.dataset_name}-view"
 
     @property
     def dataset_name(self):
@@ -232,7 +230,7 @@ class DatasetView(foc.SampleCollection):
         elements = [
             ("Dataset:", self.dataset_name),
             ("Media type:", self.media_type),
-            ("Num %s:" % self._elements_str, aggs[0]),
+            (f"Num {self._elements_str}:", aggs[0]),
             ("Tags:", aggs[1]),
         ]
 
@@ -241,7 +239,7 @@ class DatasetView(foc.SampleCollection):
 
         lines.extend(
             [
-                "%s fields:" % self._element_str.capitalize(),
+                f"{self._element_str.capitalize()} fields:",
                 self._to_fields_str(self.get_field_schema()),
             ]
         )
@@ -289,11 +287,9 @@ class DatasetView(foc.SampleCollection):
         """
         if progress:
             with fou.ProgressBar(total=len(self)) as pb:
-                for sample in pb(self._iter_samples()):
-                    yield sample
+                yield from pb(self._iter_samples())
         else:
-            for sample in self._iter_samples():
-                yield sample
+            yield from self._iter_samples()
 
     def _iter_samples(self):
         sample_cls = self._sample_cls
@@ -327,8 +323,7 @@ class DatasetView(foc.SampleCollection):
             # skipping to the last offset
 
             view = self.skip(index)
-            for sample in view.iter_samples():
-                yield sample
+            yield from view.iter_samples()
 
     def get_field_schema(
         self, ftype=None, embedded_doc_type=None, include_private=False
@@ -772,11 +767,7 @@ class DatasetView(foc.SampleCollection):
         if self.media_type != fom.VIDEO:
             return False
 
-        for stage in self._stages:
-            if stage._needs_frames(self):
-                return True
-
-        return False
+        return any(stage._needs_frames(self) for stage in self._stages)
 
     def _pipeline(
         self,
@@ -835,9 +826,7 @@ class DatasetView(foc.SampleCollection):
 
     def _slice(self, s):
         if s.step is not None and s.step != 1:
-            raise ValueError(
-                "Unsupported slice '%s'; step is not supported" % s
-            )
+            raise ValueError(f"Unsupported slice '{s}'; step is not supported")
 
         _len = None
 
@@ -858,11 +847,7 @@ class DatasetView(foc.SampleCollection):
             stop += _len
 
         if start is None:
-            if stop is None:
-                return self
-
-            return self.limit(stop)
-
+            return self if stop is None else self.limit(stop)
         if stop is None:
             return self.skip(start)
 
@@ -907,15 +892,13 @@ class DatasetView(foc.SampleCollection):
         excluded_fields = set()
 
         for stage in self._stages:
-            _selected_fields = stage.get_selected_fields(self, frames=frames)
-            if _selected_fields:
+            if _selected_fields := stage.get_selected_fields(self, frames=frames):
                 if selected_fields is None:
                     selected_fields = set(_selected_fields)
                 else:
                     selected_fields.intersection_update(_selected_fields)
 
-            _excluded_fields = stage.get_excluded_fields(self, frames=frames)
-            if _excluded_fields:
+            if _excluded_fields := stage.get_excluded_fields(self, frames=frames):
                 excluded_fields.update(_excluded_fields)
 
         if selected_fields is not None:
@@ -927,8 +910,7 @@ class DatasetView(foc.SampleCollection):
     def _get_filtered_fields(self, frames=False):
         filtered_fields = set()
         for stage in self._stages:
-            _filtered_fields = stage.get_filtered_fields(self, frames=frames)
-            if _filtered_fields:
+            if _filtered_fields := stage.get_filtered_fields(self, frames=frames):
                 filtered_fields.update(_filtered_fields)
 
         return filtered_fields

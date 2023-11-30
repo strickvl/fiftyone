@@ -475,7 +475,7 @@ class AnnotationConfig(EnvConfig):
         #
 
         for backend, parameters in d.items():
-            prefix = "FIFTYONE_%s_" % backend.upper()
+            prefix = f"FIFTYONE_{backend.upper()}_"
             for env_name, env_value in env_vars.items():
                 if env_name.startswith(prefix):
                     name = env_name[len(prefix) :].lower()
@@ -519,7 +519,7 @@ def locate_config():
 
     config_path = os.environ["FIFTYONE_CONFIG_PATH"]
     if not os.path.isfile(config_path):
-        raise OSError("Config file '%s' not found" % config_path)
+        raise OSError(f"Config file '{config_path}' not found")
 
     return config_path
 
@@ -546,7 +546,7 @@ def locate_app_config():
 
     config_path = os.environ["FIFTYONE_APP_CONFIG_PATH"]
     if not os.path.isfile(config_path):
-        raise OSError("App config file '%s' not found" % config_path)
+        raise OSError(f"App config file '{config_path}' not found")
 
     return config_path
 
@@ -573,7 +573,7 @@ def locate_annotation_config():
 
     config_path = os.environ["FIFTYONE_ANNOTATION_CONFIG_PATH"]
     if not os.path.isfile(config_path):
-        raise OSError("Annotation config file '%s' not found" % config_path)
+        raise OSError(f"Annotation config file '{config_path}' not found")
 
     return config_path
 
@@ -645,9 +645,7 @@ def _parse_env_value(value):
 
 def _get_installed_packages():
     try:
-        return set(
-            d.metadata["Name"] for d in importlib_metadata.distributions()
-        )
+        return {d.metadata["Name"] for d in importlib_metadata.distributions()}
     except:
         logger.debug("Failed to get installed packages")
         return set()

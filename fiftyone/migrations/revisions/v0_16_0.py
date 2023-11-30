@@ -96,7 +96,7 @@ def _infer_fields(coll, name, embedded_doc_type):
             and field.get("name", None) == list_field
             and field.get("ftype", None) == "fiftyone.core.fields.ListField"
         ):
-            list_path = name + "." + list_field
+            list_path = f"{name}.{list_field}"
             ltype = embedded_doc_type[:-1]  # remove "s"
             field["subfield"] = "fiftyone.core.fields.EmbeddedDocumentField"
             field["embedded_doc_type"] = ltype
@@ -111,7 +111,7 @@ def _do_infer_fields(coll, path, embedded_doc_type):
 
 def _make_field_doc(name, ftype, subfield):
     if ftype == "fiftyone.core.fields.ObjectIdField":
-        db_field = "_" + name
+        db_field = f"_{name}"
     else:
         db_field = name
 

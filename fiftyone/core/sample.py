@@ -166,11 +166,7 @@ class _SampleMixin(object):
                 encountered to the dataset schema. If False, an error is raised
                 if any fields are not in the dataset schema
         """
-        if label_field:
-            label_key = lambda k: label_field + "_" + k
-        else:
-            label_key = lambda k: k
-
+        label_key = (lambda k: f"{label_field}_{k}") if label_field else (lambda k: k)
         if confidence_thresh is not None:
             labels = _apply_confidence_thresh(labels, confidence_thresh)
 
@@ -385,10 +381,7 @@ class Sample(_SampleMixin, Document, metaclass=SampleSingleton):
             filepath=filepath, tags=tags, metadata=metadata, **kwargs
         )
 
-        if self.media_type == fomm.VIDEO:
-            self._frames = fofr.Frames(self)
-        else:
-            self._frames = None
+        self._frames = fofr.Frames(self) if self.media_type == fomm.VIDEO else None
 
     def __repr__(self):
         kwargs = {}
@@ -481,7 +474,7 @@ class Sample(_SampleMixin, Document, metaclass=SampleSingleton):
         Returns:
             a :class:`Sample`
         """
-        return cls(filepath=filepath, **{k: v for k, v in frame.iter_fields()})
+        return cls(filepath=filepath, **dict(frame.iter_fields()))
 
     @classmethod
     def from_doc(cls, doc, dataset=None):
@@ -556,10 +549,7 @@ class SampleView(_SampleMixin, DocumentView):
             filtered_fields=filtered_fields,
         )
 
-        if self.media_type == fomm.VIDEO:
-            self._frames = fofr.FramesView(self)
-        else:
-            self._frames = None
+        self._frames = fofr.FramesView(self) if self.media_type == fomm.VIDEO else None
 
     def __repr__(self):
         if self._selected_fields is not None:

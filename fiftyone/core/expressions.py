@@ -1478,7 +1478,7 @@ class ViewExpression(object):
         Returns:
             :class:`ViewExpression`
         """
-        return self == None
+        return self is None
 
     def is_number(self):
         """Determines whether this expression is a number.
@@ -2035,7 +2035,7 @@ class ViewExpression(object):
         else:
             value = value_or_expr
 
-        field = "$$expr." + field
+        field = f"$$expr.{field}"
         expr = value
         chunks = field.split(".")
         for idx, chunk in enumerate(reversed(chunks[1:]), 1):
@@ -2084,13 +2084,10 @@ class ViewExpression(object):
         Returns:
             a :class:`ViewExpression`
         """
-        if isinstance(self, (ViewField, ObjectId)):
-            return expr
-
-        return self._let_in(expr)
+        return expr if isinstance(self, (ViewField, ObjectId)) else self._let_in(expr)
 
     def _let_in(self, expr, var="expr"):
-        self_expr = ViewField("$$" + var)
+        self_expr = ViewField(f"$${var}")
         in_expr = _do_apply_memo(expr, self, self_expr)
         return ViewExpression({"$let": {"vars": {var: self}, "in": in_expr}})
 
@@ -2214,9 +2211,7 @@ class ViewExpression(object):
         s = idx_or_slice
 
         if s.step is not None and s.step != 1:
-            raise ValueError(
-                "Unsupported slice '%s'; step is not supported" % s
-            )
+            raise ValueError(f"Unsupported slice '{s}'; step is not supported")
 
         # @todo could optimize this slightly (~10% based on rough benchmarks)
         # if the `if_else()` calls were replaced by explicit logic when
@@ -2379,11 +2374,7 @@ class ViewExpression(object):
         Returns:
             a :class:`ViewExpression`
         """
-        if isinstance(values, ViewExpression):
-            other = values
-        else:
-            other = list(values)
-
+        other = values if isinstance(values, ViewExpression) else list(values)
         return ViewExpression({"$setIsSubset": [self, other]})
 
     def set_equals(self, *args):
@@ -2548,11 +2539,7 @@ class ViewExpression(object):
         Returns:
             a :class:`ViewExpression`
         """
-        if isinstance(values, ViewExpression):
-            other = values
-        else:
-            other = list(values)
-
+        other = values if isinstance(values, ViewExpression) else list(values)
         return ViewExpression({"$setDifference": [self, other]})
 
     def reverse(self):
@@ -2642,16 +2629,8 @@ class ViewExpression(object):
         Returns:
             a :class:`ViewExpression`
         """
-        if key is not None:
-            comp = "(a, b) => a.{key} - b.{key}".format(key=key)
-        else:
-            comp = ""
-
-        if reverse:
-            rev = ".reverse()"
-        else:
-            rev = ""
-
+        comp = "(a, b) => a.{key} - b.{key}".format(key=key) if key is not None else ""
+        rev = ".reverse()" if reverse else ""
         sort_fcn = """
         function(array) {{
             array.sort({comp}){rev};
@@ -3086,10 +3065,10 @@ class ViewExpression(object):
         Returns:
             a :class:`ViewExpression`
         """
-        if start is None and end is None and count is None:
-            return self
-
         if start is None:
+            if end is None and count is None:
+                return self
+
             start = 0
 
         if start < 0 and end is not None and end < 0:
@@ -3441,9 +3420,9 @@ class ViewExpression(object):
         str_or_strs = _escape_regex_chars(str_or_strs)
 
         if etau.is_str(str_or_strs):
-            regex = "^" + str_or_strs
+            regex = f"^{str_or_strs}"
         else:
-            regex = "^(%s)" % ("|".join(str_or_strs))
+            regex = f'^({"|".join(str_or_strs)})'
 
         options = None if case_sensitive else "i"
         return self.re_match(regex, options=options)
@@ -3476,9 +3455,9 @@ class ViewExpression(object):
         str_or_strs = _escape_regex_chars(str_or_strs)
 
         if etau.is_str(str_or_strs):
-            regex = str_or_strs + "$"
+            regex = f"{str_or_strs}$"
         else:
-            regex = "(%s)$" % ("|".join(str_or_strs))
+            regex = f'({"|".join(str_or_strs)})$'
 
         options = None if case_sensitive else "i"
         return self.re_match(regex, options=options)
@@ -3514,7 +3493,7 @@ class ViewExpression(object):
         if etau.is_str(str_or_strs):
             regex = str_or_strs
         else:
-            regex = "(%s)" % ("|".join(str_or_strs))
+            regex = f'({"|".join(str_or_strs)})'
 
         options = None if case_sensitive else "i"
         return self.re_match(regex, options=options)
@@ -3552,9 +3531,9 @@ class ViewExpression(object):
         str_or_strs = _escape_regex_chars(str_or_strs)
 
         if etau.is_str(str_or_strs):
-            regex = "^" + str_or_strs + "$"
+            regex = f"^{str_or_strs}$"
         else:
-            regex = "^(%s)$" % ("|".join(str_or_strs))
+            regex = f'^({"|".join(str_or_strs)})$'
 
         options = None if case_sensitive else "i"
         return self.re_match(regex, options=options)
@@ -4289,10 +4268,7 @@ class ViewExpression(object):
         if num_exprs == 0:
             return ViewExpression(False)
 
-        if num_exprs == 1:
-            return exprs[0]
-
-        return ViewExpression({"$or": exprs})
+        return exprs[0] if num_exprs == 1 else ViewExpression({"$or": exprs})
 
     @staticmethod
     def all(exprs):
@@ -4336,10 +4312,7 @@ class ViewExpression(object):
         if num_exprs == 0:
             return ViewExpression(True)
 
-        if num_exprs == 1:
-            return exprs[0]
-
-        return ViewExpression({"$and": exprs})
+        return exprs[0] if num_exprs == 1 else ViewExpression({"$and": exprs})
 
     @staticmethod
     def range(start, stop=None):
@@ -4597,15 +4570,12 @@ class ViewField(ViewExpression):
             prefix = self._prefix
 
         if prefix:
-            return prefix + "." + self._expr if self._expr else prefix
+            return f"{prefix}.{self._expr}" if self._expr else prefix
 
         if self._expr:
-            return "$" + self._expr
+            return f"${self._expr}"
 
-        if self.is_frozen:
-            return "$$ROOT"
-
-        return "$$CURRENT"
+        return "$$ROOT" if self.is_frozen else "$$CURRENT"
 
 
 class ObjectId(ViewExpression):
@@ -4661,10 +4631,7 @@ def _do_to_mongo(val, prefix):
         # The arg needs must be float (not int) to avoid errors near the epoch
         return {"$toDate": fou.datetime_to_timestamp(val)}
 
-    if isinstance(val, timedelta):
-        return fou.timedelta_to_ms(val)
-
-    return val
+    return fou.timedelta_to_ms(val) if isinstance(val, timedelta) else val
 
 
 def _do_freeze_prefix(val, prefix):
@@ -4695,10 +4662,7 @@ def _do_recurse(val, fcn):
             _do_recurse(k, fcn): _do_recurse(v, fcn) for k, v in val.items()
         }
 
-    if isinstance(val, list):
-        return [_do_recurse(v, fcn) for v in val]
-
-    return val
+    return [_do_recurse(v, fcn) for v in val] if isinstance(val, list) else val
 
 
 VALUE = ViewField("$$value")
@@ -4713,7 +4677,7 @@ def _escape_regex_chars(str_or_strs):
     # Must escape `[`, `]`, `-`, and `\` because they have special meaning
     # inside the `[]` that will be used in the replacement regex
     regex_chars = r"\[\]{}()*+\-?.,\\^$|#"
-    _escape = lambda s: re.sub(r"([%s])" % regex_chars, r"\\\1", s)
+    _escape = lambda s: re.sub(f"([{regex_chars}])", r"\\\1", s)
 
     if etau.is_str(str_or_strs):
         return _escape(str_or_strs)

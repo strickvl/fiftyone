@@ -196,11 +196,7 @@ def _plot_confusion_matrix_interactive(
     num_rows, num_cols = confusion_matrix.shape
     zlim = [0, confusion_matrix.max()]
 
-    if gt_field and pred_field:
-        label_fields = [gt_field, pred_field]
-    else:
-        label_fields = None
-
+    label_fields = [gt_field, pred_field] if gt_field and pred_field else None
     xlabels = labels[:num_cols]
     ylabels = labels[:num_rows]
 
@@ -443,7 +439,7 @@ def plot_pr_curve(
         -   a plotly figure, otherwise
     """
     if style not in ("line", "area"):
-        msg = "Unsupported style '%s'; using 'area' instead" % style
+        msg = f"Unsupported style '{style}'; using 'area' instead"
         warnings.warn(msg)
         style = "area"
 
@@ -563,11 +559,7 @@ def plot_pr_curves(
         avg_precision = avg_precisions[idx]
         label = "%s (AP = %.3f)" % (_class, avg_precision)
 
-        if thresholds is not None:
-            customdata = thresholds[idx]
-        else:
-            customdata = None
-
+        customdata = thresholds[idx] if thresholds is not None else None
         line = go.Scatter(
             x=recall,
             y=precision,
@@ -633,7 +625,7 @@ def plot_roc_curve(
         -   a plotly figure, otherwise
     """
     if style not in ("line", "area"):
-        msg = "Unsupported style '%s'; using 'area' instead" % style
+        msg = f"Unsupported style '{style}'; using 'area' instead"
         warnings.warn(msg)
         style = "area"
 
@@ -799,22 +791,10 @@ def lines(
     if y is None:
         raise ValueError("You must provide 'y' values")
 
-    if xaxis_title is not None:
-        x_title = xaxis_title.rsplit(".", 1)[-1]
-    else:
-        x_title = "x"
-
-    if yaxis_title is not None:
-        y_title = yaxis_title.rsplit(".", 1)[-1]
-    else:
-        y_title = "y"
-
+    x_title = xaxis_title.rsplit(".", 1)[-1] if xaxis_title is not None else "x"
+    y_title = yaxis_title.rsplit(".", 1)[-1] if yaxis_title is not None else "y"
     if sizes is not None and sizes_title is None:
-        if etau.is_str(sizes):
-            sizes_title = sizes.rsplit(".", 1)[-1]
-        else:
-            sizes_title = "size"
-
+        sizes_title = sizes.rsplit(".", 1)[-1] if etau.is_str(sizes) else "size"
     hover_lines = ["%s: %%{x}" % x_title, "%s: %%{y}" % y_title]
 
     if sizes is not None:
@@ -857,11 +837,7 @@ def lines(
         if marker_size is None:
             marker_size = 15  # max marker size
 
-        if is_frames:
-            _sizes = list(itertools.chain(*sizes))
-        else:
-            _sizes = sizes
-
+        _sizes = list(itertools.chain(*sizes)) if is_frames else sizes
         try:
             sizeref = 0.5 * max(_sizes) / marker_size
         except ValueError:
@@ -936,11 +912,7 @@ def lines(
         figure.update_layout(yaxis_scaleanchor="x")
 
     if ids is None:
-        if foc.is_jupyter_context():
-            return PlotlyNotebookPlot(figure)
-
-        return figure
-
+        return PlotlyNotebookPlot(figure) if foc.is_jupyter_context() else figure
     selection_mode = None
     init_fcn = None
 
@@ -953,11 +925,9 @@ def lines(
         else:
             link_type = "samples"
     elif link_field == "frames":
-        if isinstance(samples, fov.FramesView):
-            link_type = "frames"
-        else:
-            link_type = "frames"
+        if not isinstance(samples, fov.FramesView):
             init_fcn = lambda view: view.to_frames()
+        link_type = "frames"
     else:
         link_type = "labels"
         selection_mode = "patches"
@@ -1190,11 +1160,7 @@ def scatterplot(
         return figure
 
     if ids is None:
-        if foc.is_jupyter_context():
-            return PlotlyNotebookPlot(figure)
-
-        return figure
-
+        return PlotlyNotebookPlot(figure) if foc.is_jupyter_context() else figure
     selection_mode = None
     init_fcn = None
 
@@ -1207,11 +1173,9 @@ def scatterplot(
         else:
             link_type = "samples"
     elif link_field == "frames":
-        if isinstance(samples, fov.FramesView):
-            link_type = "frames"
-        else:
-            link_type = "frames"
+        if not isinstance(samples, fov.FramesView):
             init_fcn = lambda view: view.to_frames()
+        link_type = "frames"
     else:
         link_type = "labels"
         selection_mode = "patches"
@@ -1234,11 +1198,7 @@ def _parse_titles(
         labels_title = labels.rsplit(".", 1)[-1]
 
     if sizes_title is None:
-        if etau.is_str(sizes):
-            sizes_title = sizes.rsplit(".", 1)[-1]
-        else:
-            sizes_title = "size"
-
+        sizes_title = sizes.rsplit(".", 1)[-1] if etau.is_str(sizes) else "size"
     if show_colorbar_title is None:
         show_colorbar_title = labels_title is not None
 
@@ -1259,12 +1219,11 @@ def _parse_scatter_inputs(
     sizes = _parse_values(sizes, "sizes", samples=samples, ref=points)
 
     if ids is None and samples is not None:
-        if num_dims != 2:
-            msg = "Interactive selection is only supported in 2D"
-            warnings.warn(msg)
-        else:
+        if num_dims == 2:
             ids = _get_ids(samples, link_field=link_field, ref=points)
 
+        else:
+            warnings.warn("Interactive selection is only supported in 2D")
     return _parse_scatter_data(points, ids, labels, sizes, edges, classes)
 
 
@@ -1310,7 +1269,7 @@ def _get_ids(samples, link_field=None, ref=None, is_frames=False):
         ids = _unwind_values(ids)
 
     if ref is not None:
-        values_type = "%s IDs" % ptype
+        values_type = f"{ptype} IDs"
         _validate_values(ids, ref, values_type, is_frames=is_frames)
 
     return ids
@@ -1537,7 +1496,7 @@ def location_scatterplot(
     )
 
     if style not in (None, "scatter", "density"):
-        msg = "Ignoring unsupported style '%s'" % style
+        msg = f"Ignoring unsupported style '{style}'"
         warnings.warn(msg)
 
     if categorical:
@@ -1624,11 +1583,7 @@ def location_scatterplot(
         return figure
 
     if ids is None:
-        if foc.is_jupyter_context():
-            return PlotlyNotebookPlot(figure)
-
-        return figure
-
+        return PlotlyNotebookPlot(figure) if foc.is_jupyter_context() else figure
     return InteractiveScatter(figure, init_view=samples)
 
 
@@ -1652,7 +1607,7 @@ def _parse_locations(locations, samples):
             embedded_doc_type=fol.GeoLocation,
         )
 
-    locations = samples.values(location_field + ".point.coordinates")
+    locations = samples.values(f"{location_field}.point.coordinates")
     return np.asarray(locations)
 
 
@@ -2053,10 +2008,7 @@ class InteractiveScatter(PlotlyInteractivePlot):
             if trace.selectedpoints:
                 ids.append(self._trace_ids[idx][list(trace.selectedpoints)])
 
-        if not found:
-            return None
-
-        return list(itertools.chain.from_iterable(ids))
+        return None if not found else list(itertools.chain.from_iterable(ids))
 
     def _make_widget(self):
         widget = go.FigureWidget(self._figure)
@@ -2128,14 +2080,11 @@ class InteractiveScatter(PlotlyInteractivePlot):
         if trace.visible == True:
             self._callback_flags[trace.name] = True
 
-        # We're ready for callback if there is at least one visible trace and
-        # all visible traces have fired their selection events
-        visible_traces = [t for t in self._traces if t.visible == True]
-        if not visible_traces:
-            ready = False
-        else:
+        if visible_traces := [t for t in self._traces if t.visible == True]:
             ready = all(self._callback_flags[t.name] for t in visible_traces)
 
+        else:
+            ready = False
         if ready:
             self._init_callback_flags()
 
@@ -2234,21 +2183,14 @@ class InteractiveHeatmap(PlotlyInteractivePlot):
 
     @property
     def init_view(self):
-        if self._curr_view is not None:
-            return self._curr_view
-
-        return super().init_view
+        return self._curr_view if self._curr_view is not None else super().init_view
 
     @property
     def _selected_ids(self):
         if not self._selected_cells:
             return None
 
-        if self._curr_ids is not None:
-            ids = self._curr_ids
-        else:
-            ids = self.ids
-
+        ids = self._curr_ids if self._curr_ids is not None else self.ids
         return list(
             itertools.chain.from_iterable(
                 ids[y, x] for x, y in self._selected_cells
@@ -2388,10 +2330,9 @@ class InteractiveHeatmap(PlotlyInteractivePlot):
     def _init_cells_map(self):
         num_rows, num_cols = self.Z.shape
         self._cells_map = {}
-        for y in range(num_rows):
-            for x in range(num_cols):
-                for _id in self.ids[y, x]:
-                    self._cells_map[_id] = (x, y)
+        for y, x in itertools.product(range(num_rows), range(num_cols)):
+            for _id in self.ids[y, x]:
+                self._cells_map[_id] = (x, y)
 
     def _make_heatmap(self):
         Z = self.Z
@@ -2507,11 +2448,7 @@ def _plot_scatter_categorical(
     for label, color in zip(classes, colors):
         label_inds = labels == label
 
-        if ids is not None:
-            customdata = ids[label_inds]
-        else:
-            customdata = None
-
+        customdata = ids[label_inds] if ids is not None else None
         if sizes is not None:
             marker = dict(
                 size=sizes[label_inds],
@@ -2822,11 +2759,7 @@ def _plot_scatter_mapbox_categorical(
     for label, color in zip(classes, colors):
         label_inds = labels == label
 
-        if ids is not None:
-            customdata = ids[label_inds]
-        else:
-            customdata = None
-
+        customdata = ids[label_inds] if ids is not None else None
         if sizes is not None:
             marker = dict(
                 size=sizes[label_inds],

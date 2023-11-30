@@ -19,22 +19,21 @@ def up(db):
     colls_in_use = set()
     for dataset_name in dataset_names:
         dataset_dict = db.datasets.find_one({"name": dataset_name})
-        sample_coll_name = dataset_dict.get("sample_collection_name", None)
-        if sample_coll_name:
+        if sample_coll_name := dataset_dict.get(
+            "sample_collection_name", None
+        ):
             colls_in_use.add(sample_coll_name)
-            colls_in_use.add("frames." + sample_coll_name)
+            colls_in_use.add(f"frames.{sample_coll_name}")
 
     # Only collections with these prefixes may be deleted
     prefixes = ("samples.", "frames.", "patches.", "clips.")
 
-    drop_colls = []
-    for coll_name in db.list_collection_names():
-        if coll_name not in colls_in_use and any(
-            coll_name.startswith(prefix) for prefix in prefixes
-        ):
-            drop_colls.append(coll_name)
-
-    if drop_colls:
+    if drop_colls := [
+        coll_name
+        for coll_name in db.list_collection_names()
+        if coll_name not in colls_in_use
+        and any(coll_name.startswith(prefix) for prefix in prefixes)
+    ]:
         logger.info(
             "Dropping %d orphan collections that were unintentionally left "
             "behind when datasets were deleted",
